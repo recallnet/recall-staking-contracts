@@ -21,10 +21,10 @@ importers:
         specifier: ^2.0.13
         version: 2.0.13(hardhat@2.24.0(ts-node@10.9.2(@types/node@22.15.18)(typescript@5.8.3))(typescript@5.8.3))
       '@openzeppelin/contracts':
-        specifier: ^5.2.0
+        specifier: ^5.3.0
         version: 5.3.0
       '@openzeppelin/contracts-upgradeable':
-        specifier: ^5.2.0
+        specifier: ^5.3.0
         version: 5.3.0(@openzeppelin/contracts@5.3.0)
       '@typechain/ethers-v6':
         specifier: ^0.5.1
@@ -33,7 +33,7 @@ importers:
         specifier: ^9.1.0
         version: 9.1.0(@typechain/ethers-v6@0.5.1(ethers@6.14.0)(typechain@8.3.2(typescript@5.8.3))(typescript@5.8.3))(ethers@6.14.0)(hardhat@2.24.0(ts-node@10.9.2(@types/node@22.15.18)(typescript@5.8.3))(typescript@5.8.3))(typechain@8.3.2(typescript@5.8.3))
       '@types/chai':
-        specifier: ^5.2.0
+        specifier: ^5.2.2
         version: 5.2.2
       '@types/jest':
         specifier: ^29.5.14
@@ -45,22 +45,22 @@ importers:
         specifier: ^5.2.0
         version: 5.2.0
       ethers:
-        specifier: ^6.13.5
+        specifier: ^6.14.0
         version: 6.14.0
       hardhat:
-        specifier: ^2.22.19
+        specifier: ^2.24.0
         version: 2.24.0(ts-node@10.9.2(@types/node@22.15.18)(typescript@5.8.3))(typescript@5.8.3)
       hardhat-abi-exporter:
-        specifier: ^2.10.1
+        specifier: ^2.11.0
         version: 2.11.0(hardhat@2.24.0(ts-node@10.9.2(@types/node@22.15.18)(typescript@5.8.3))(typescript@5.8.3))
       hardhat-contract-sizer:
         specifier: ^2.10.0
         version: 2.10.0(hardhat@2.24.0(ts-node@10.9.2(@types/node@22.15.18)(typescript@5.8.3))(typescript@5.8.3))
       hardhat-deploy:
-        specifier: ^0.14.0
-        version: 0.14.1
+        specifier: ^1.0.2
+        version: 1.0.2
       hardhat-gas-reporter:
-        specifier: ^2.2.2
+        specifier: ^2.2.3
         version: 2.2.3(hardhat@2.24.0(ts-node@10.9.2(@types/node@22.15.18)(typescript@5.8.3))(typescript@5.8.3))(typescript@5.8.3)
       hardhat-spdx-license-identifier:
         specifier: ^2.3.1
@@ -69,7 +69,7 @@ importers:
         specifier: ^29.7.0
         version: 29.7.0(@types/node@22.15.18)(ts-node@10.9.2(@types/node@22.15.18)(typescript@5.8.3))
       mocha:
-        specifier: ^11.1.0
+        specifier: ^11.2.2
         version: 11.2.2
       prettier:
         specifier: ^3.5.3
@@ -78,10 +78,10 @@ importers:
         specifier: ^4.1.0
         version: 4.1.0(prettier@3.5.3)(typescript@5.8.3)
       prettier-plugin-solidity:
-        specifier: ^1.4.2
-        version: 1.4.3(prettier@3.5.3)
+        specifier: ^2.0.0
+        version: 2.0.0(prettier@3.5.3)
       solidity-coverage:
-        specifier: ^0.8.14
+        specifier: ^0.8.16
         version: 0.8.16(hardhat@2.24.0(ts-node@10.9.2(@types/node@22.15.18)(typescript@5.8.3))(typescript@5.8.3))
       solidity-docgen:
         specifier: 0.6.0-beta.36
@@ -93,7 +93,7 @@ importers:
         specifier: ^8.3.2
         version: 8.3.2(typescript@5.8.3)
       typescript:
-        specifier: ^5.8.2
+        specifier: ^5.8.3
         version: 5.8.3
 
 packages:
@@ -268,6 +268,9 @@ packages:
 
   '@bcoe/v8-coverage@0.2.3':
     resolution: {integrity: sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==}
+
+  '@bytecodealliance/preview2-shim@0.17.2':
+    resolution: {integrity: sha512-mNm/lblgES8UkVle8rGImXOz4TtL3eU3inHay/7TVchkKrb/lgcVvTK0+VAw8p5zQ0rgQsXm1j5dOlAAd+MeoA==}
 
   '@colors/colors@1.5.0':
     resolution: {integrity: sha512-ooWCrlZP11i8GImSjTHYHLkvFDP48nS4+204nGb1RiX/WXYHmJA2III9/e2DWVabCESdW7hBAEzHRqUn9OUVvQ==}
@@ -587,6 +590,9 @@ packages:
     resolution: {integrity: sha512-i57GX1sC0kYGyRVnbQrjjyBTpWTKgrvKC+jH8CMKV6gHp959Upb8lKaZ58WRHIU0espkulTxLnacYeUDirwJ2g==}
     peerDependencies:
       hardhat: ^2.0.4
+
+  '@nomicfoundation/slang@1.1.0':
+    resolution: {integrity: sha512-g2BofMUq1qCP22L/ksOftScrCxjdHTxgg8ch5PYon2zfSSKGCMwE4TgIC64CuorMcSsvCmqNNFEWR/fwFcMeTw==}
 
   '@nomicfoundation/solidity-analyzer-darwin-arm64@0.1.2':
     resolution: {integrity: sha512-JaqcWPDZENCvm++lFFGjrDd8mxtf+CtLd2MiXvMNTBD33dContTZ9TWETwNFwg7JTJT5Q9HEecH7FA+HTSsIUw==}
@@ -1616,8 +1622,8 @@ packages:
     peerDependencies:
       hardhat: ^2.0.0
 
-  hardhat-deploy@0.14.1:
-    resolution: {integrity: sha512-hfho8XtlWqCi/xV2y+z3gBzkCcEP8o5smx6IS1X1ar8gL1ocRulD0kVl5rfZtNLdPjvXa77EtvhBgGAeDQsoOA==}
+  hardhat-deploy@1.0.2:
+    resolution: {integrity: sha512-FCeoGpYLQiGjROURihth6Qye+GWvRqalGbRsCTW33canhAS4g6mJEILbkWbWF8P2cPWgcpxe3cCJksk6n+oD7Q==}
 
   hardhat-gas-reporter@2.2.3:
     resolution: {integrity: sha512-/52fDR0WOgPTjImmx4j179SAgxPv/499TD0o0qnMhaRr24i2cqlcmCW92FJi0QAKu7HcnxdBGZWQP/5aPjQqUw==}
@@ -2351,11 +2357,11 @@ packages:
       vue-tsc:
         optional: true
 
-  prettier-plugin-solidity@1.4.3:
-    resolution: {integrity: sha512-Mrr/iiR9f9IaeGRMZY2ApumXcn/C5Gs3S7B7hWB3gigBFML06C0yEyW86oLp0eqiA0qg+46FaChgLPJCj/pIlg==}
+  prettier-plugin-solidity@2.0.0:
+    resolution: {integrity: sha512-tis3SwLSrYKDzzRFle48fjPM4GQKBtkVBUajAkt4b75/cc6zojFP7qjz6fDxKfup+34q0jKeSM3QeP9flJFXWw==}
     engines: {node: '>=18'}
     peerDependencies:
-      prettier: '>=2.3.0'
+      prettier: '>=3.0.0'
 
   prettier@2.8.8:
     resolution: {integrity: sha512-tdN8qQGvNjw4CHbY+XXk0JgCXn9QiF21a55rBe5LJAU+kDyC4WQn4+awm2Xfk2lQMk5fKup9XgzTZtGkjBdP9Q==}
@@ -3179,6 +3185,8 @@ snapshots:
 
   '@bcoe/v8-coverage@0.2.3': {}
 
+  '@bytecodealliance/preview2-shim@0.17.2': {}
+
   '@colors/colors@1.5.0':
     optional: true
 
@@ -3760,6 +3768,10 @@ snapshots:
       undici: 5.29.0
     transitivePeerDependencies:
       - supports-color
+
+  '@nomicfoundation/slang@1.1.0':
+    dependencies:
+      '@bytecodealliance/preview2-shim': 0.17.2
 
   '@nomicfoundation/solidity-analyzer-darwin-arm64@0.1.2':
     optional: true
@@ -4944,7 +4956,7 @@ snapshots:
       hardhat: 2.24.0(ts-node@10.9.2(@types/node@22.15.18)(typescript@5.8.3))(typescript@5.8.3)
       strip-ansi: 6.0.1
 
-  hardhat-deploy@0.14.1:
+  hardhat-deploy@1.0.2:
     dependencies:
       '@ethersproject/abi': 5.8.0
       '@ethersproject/abstract-signer': 5.8.0
@@ -5916,8 +5928,9 @@ snapshots:
       prettier: 3.5.3
       typescript: 5.8.3
 
-  prettier-plugin-solidity@1.4.3(prettier@3.5.3):
+  prettier-plugin-solidity@2.0.0(prettier@3.5.3):
     dependencies:
+      '@nomicfoundation/slang': 1.1.0
       '@solidity-parser/parser': 0.20.1
       prettier: 3.5.3
       semver: 7.7.2
