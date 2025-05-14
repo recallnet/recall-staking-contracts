@@ -1,0 +1,11 @@
+artifacts/
+cache/
+abi/
+node_modules/
+coverage.json
+coverage/
+crytic-export/
+deployments/
+typechain-types/
+docgen
+pnpm-lock.yaml

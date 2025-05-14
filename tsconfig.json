@@ -1,0 +1,27 @@
+{
+    "compilerOptions": {
+        "target": "es2020",
+        "module": "commonjs",
+        "esModuleInterop": true,
+        "forceConsistentCasingInFileNames": true,
+        "strict": true,
+        "skipLibCheck": true,
+        "resolveJsonModule": true
+    },
+    "include": [
+        "./test",
+        "./typechain-types",
+        "./deploy",
+        "./scripts/",
+        "test/testIntegration",
+        "test/integration/delegation.test.ts"
+    ],
+    "files": [
+        "./config.example.ts",
+        "./config.ts",
+        "types.ts",
+        "./hardhat.config.ts",
+        "./deploy-helpers.ts",
+        "./constants.ts"
+    ]
+}
