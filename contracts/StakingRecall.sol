@@ -6,7 +6,9 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {INftReceipt} from "./interfaces/INftReceipt.sol";
 
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import {
+    PausableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 
 import {
     AccessControlUpgradeable
@@ -15,6 +17,9 @@ import {
 import {
     ReentrancyGuardUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import {
+    MulticallUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/MulticallUpgradeable.sol";
 
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
@@ -32,15 +37,28 @@ error InvalidArraysLength();
 error MaxWithdrawCooldown();
 error Unlocked();
 
-contract Staking is Initializable, PausableUpgradeable, AccessControlUpgradeable, ReentrancyGuardUpgradeable {
+contract Staking is
+    Initializable,
+    PausableUpgradeable,
+    AccessControlUpgradeable,
+    ReentrancyGuardUpgradeable,
+    MulticallUpgradeable
+{
     using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.UintSet;
 
+    event Stake(
+        address staker,
+        uint256 stakeId,
+        uint256 amount,
+        uint256 startTime,
+        uint256 lockupEndTime
+    );
 
-    event Stake(address staker, uint256 stakeId, uint256 amount, uint256 duration);
     event Relock(address staker, uint256 stakeId, uint256 duration);
-    event Unstake(address staker, uint256 stakeId);
-    event Withdraw(address staker, uint256 stakeId);
+
+    event Unstake(address staker, uint256 stakeId, uint256 amount);
+    event Withdraw(address staker, uint256 stakeId, uint256 amount);
 
     event UpdateAllowedDuration(uint256 duration, bool allowed);
     event UpdateMinStakeAmount(uint256 newMinStakeAmount);
@@ -73,7 +91,6 @@ contract Staking is Initializable, PausableUpgradeable, AccessControlUpgradeable
 
     bytes32 public constant EMERGENCY_MANAGER_ROLE = keccak256("EMERGENCY_MANAGER_ROLE");
 
-
     struct StakeInfo {
         uint256 amount;
         uint64 startTime;
@@ -83,9 +100,9 @@ contract Staking is Initializable, PausableUpgradeable, AccessControlUpgradeable
 
     struct StakeInfoWithId {
         uint256 tokenId; // stake id
-        uint256 amount;  // stake amount
+        uint256 amount; // stake amount
         uint64 startTime; // stake start time
-        uint64 lockupEndTime;  // lockup end timestamp
+        uint64 lockupEndTime; // lockup end timestamp
         uint64 withdrawAllowedTime; // zero until it’s unstaked
     }
 
@@ -99,21 +116,23 @@ contract Staking is Initializable, PausableUpgradeable, AccessControlUpgradeable
 
     mapping(address => EnumerableSet.UintSet) private _tokenIds;
 
-    modifier whenNotUnlocked() {
-        if (unlockedAll) revert Unlocked();
-        _;
-    }
-
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
     }
 
-    function initialize(address _stakeToken, address _nftReceipt, address _defaultAdmin) public initializer {
-        if (_stakeToken == address(0) || _nftReceipt == address(0)) revert ZeroAddress();
+    function initialize(
+        address _stakeToken,
+        address _nftReceipt,
+        address _defaultAdmin
+    ) public initializer {
+        if (_stakeToken == address(0) || _nftReceipt == address(0) || _defaultAdmin == address(0))
+            revert ZeroAddress();
+
         __Pausable_init();
         __ReentrancyGuard_init();
         __AccessControl_init();
+        __Multicall_init();
         _grantRole(DEFAULT_ADMIN_ROLE, _defaultAdmin);
 
         stakeToken = IERC20(_stakeToken);
@@ -131,7 +150,10 @@ contract Staking is Initializable, PausableUpgradeable, AccessControlUpgradeable
      * @param duration - The duration of the stake in seconds
      * @return The id of the stake
      */
-    function stake(uint256 amount, uint256 duration) public whenNotPaused whenNotUnlocked nonReentrant returns (uint256) {
+    function stake(
+        uint256 amount,
+        uint256 duration
+    ) public whenNotPaused nonReentrant returns (uint256) {
         if (!allowedDurations[duration]) revert NotAllowedDuration(duration);
         if (amount == 0 || amount < minStakeAmount) revert NotAllowedAmount(amount);
 
@@ -140,25 +162,27 @@ contract Staking is Initializable, PausableUpgradeable, AccessControlUpgradeable
         totalUserStaked[msg.sender] += amount;
         totalStaked += amount;
 
-
+        uint256 lockupEndTime = block.timestamp + duration;
         _tokenIds[msg.sender].add(_lastId);
         stakeInfo[_lastId] = StakeInfo(
             uint256(amount),
             uint64(block.timestamp),
-            uint64(block.timestamp + duration),
+            uint64(lockupEndTime),
             0
         );
 
         nftReceipt.mint(msg.sender, _lastId);
         stakeToken.safeTransferFrom(msg.sender, address(this), amount);
 
-        emit Stake(msg.sender, _lastId, amount, duration);
+        emit Stake(msg.sender, _lastId, amount, block.timestamp, lockupEndTime);
         return _lastId;
     }
 
-
     /**
-     * @notice Partial relock of the stake
+     * @notice Partial relock of the stake:
+     * decreases the amount of the existing stake 
+     * and creates a new one with new lock amount and duration
+     * @dev The previous stake will be decreased and created new one 
 
     the previous stake here that exists right now will be decreased 
     and in parallel we create a new one with new lock amount. 
@@ -166,18 +190,17 @@ contract Staking is Initializable, PausableUpgradeable, AccessControlUpgradeable
     in partial relock, make new stakeInfo for the locked share: with startTime set to when relock is called.
     The existing stakeInfo holds the remaining unlocked-but-still-staked amount
     */
-
     function relock(
         uint256 tokenId,
         uint256 newLockDuration,
         uint256 newLockAmount
-    ) external whenNotPaused whenNotUnlocked nonReentrant returns (uint256) {
+    ) external whenNotPaused nonReentrant returns (uint256) {
         if (!allowedDurations[newLockDuration]) revert NotAllowedDuration(newLockDuration);
         if (!_tokenIds[msg.sender].contains(tokenId)) revert NotStakeOwner(tokenId);
 
         StakeInfo storage userOldStake = stakeInfo[tokenId];
         if (block.timestamp < userOldStake.lockupEndTime) revert TooEarlyForRelock();
-        
+
         // update existing stakeInfo
         userOldStake.amount -= newLockAmount;
 
@@ -194,8 +217,14 @@ contract Staking is Initializable, PausableUpgradeable, AccessControlUpgradeable
         nftReceipt.mint(msg.sender, _lastId);
 
         // @todo consider emitting two kinds of events: Relock and Stake
-        emit Relock(msg.sender, tokenId, newLockDuration);
-
+        emit Relock(msg.sender, tokenId, userOldStake.amount);
+        emit Stake(
+            msg.sender,
+            _lastId,
+            newLockAmount,
+            block.timestamp,
+            block.timestamp + newLockDuration
+        );
         return _lastId;
     }
 
@@ -205,7 +234,10 @@ contract Staking is Initializable, PausableUpgradeable, AccessControlUpgradeable
      * @param tokenId - The id of the stake to relock
      * @param newLockDuration - The new duration of the stake
      */
-    function relock(uint256 tokenId, uint256 newLockDuration) external whenNotPaused whenNotUnlocked nonReentrant returns (uint256) {
+    function relock(
+        uint256 tokenId,
+        uint256 newLockDuration
+    ) external whenNotPaused nonReentrant returns (uint256) {
         if (!allowedDurations[newLockDuration]) revert NotAllowedDuration(newLockDuration);
         if (!_tokenIds[msg.sender].remove(tokenId)) revert NotStakeOwner(tokenId);
 
@@ -225,20 +257,28 @@ contract Staking is Initializable, PausableUpgradeable, AccessControlUpgradeable
 
         nftReceipt.burn(msg.sender, tokenId);
         nftReceipt.mint(msg.sender, _lastId);
-        
+
         // @todo events
-        emit Relock(msg.sender, tokenId, newLockDuration);
+        emit Relock(msg.sender, tokenId, 0);
+        emit Stake(
+            msg.sender,
+            _lastId,
+            userOldStake.amount,
+            block.timestamp,
+            block.timestamp + newLockDuration
+        );
 
         return _lastId;
     }
-
-
 
     /**
      * @notice Partial unstake of the stake
       each partial unstake must create a new token id. 
      */
-    function unstake(uint256 tokenId, uint256 amountToUnstake) public whenNotUnlocked nonReentrant returns (uint256) {
+    function unstake(
+        uint256 tokenId,
+        uint256 amountToUnstake
+    ) public whenNotPaused nonReentrant returns (uint256) {
         StakeInfo storage userOldStake = stakeInfo[tokenId];
         if (block.timestamp < userOldStake.lockupEndTime) revert TooEarlyForUnstake();
         if (!_tokenIds[msg.sender].contains(tokenId)) revert NotStakeOwner(tokenId);
@@ -258,9 +298,15 @@ contract Staking is Initializable, PausableUpgradeable, AccessControlUpgradeable
         );
         nftReceipt.mint(msg.sender, _lastId);
 
-        // @todo events
-        emit Unstake(msg.sender, tokenId);
-
+        // @audit-ok events
+        emit Unstake(msg.sender, tokenId, amountToUnstake);
+        emit Stake(
+            msg.sender,
+            _lastId,
+            newStakeAmount,
+            userOldStake.startTime,
+            userOldStake.lockupEndTime
+        );
         return _lastId;
     }
 
@@ -275,11 +321,10 @@ contract Staking is Initializable, PausableUpgradeable, AccessControlUpgradeable
         if (!_tokenIds[msg.sender].contains(tokenId)) revert NotStakeOwner(tokenId);
 
         userStake.withdrawAllowedTime = uint64(block.timestamp + withdrawCooldown);
-        
-        // @todo events
-        emit Unstake(msg.sender, tokenId);
-    }
 
+        // @audit-ok events
+        emit Unstake(msg.sender, tokenId, userStake.amount);
+    }
 
     function withdraw(uint256 tokenId) public nonReentrant {
         StakeInfo memory userStake = stakeInfo[tokenId];
@@ -287,7 +332,7 @@ contract Staking is Initializable, PausableUpgradeable, AccessControlUpgradeable
         if (!unlockedAll) {
             if (block.timestamp < userStake.withdrawAllowedTime) revert NotUnstakedYet();
             if (!_tokenIds[msg.sender].remove(tokenId)) revert NotStakeOwner(tokenId);
-        } 
+        }
 
         delete stakeInfo[tokenId];
 
@@ -297,13 +342,7 @@ contract Staking is Initializable, PausableUpgradeable, AccessControlUpgradeable
         nftReceipt.burn(msg.sender, tokenId);
         stakeToken.safeTransfer(msg.sender, userStake.amount);
 
-        emit Withdraw(msg.sender, tokenId);
-    }
-
-    function multiWithdraw(uint256[] calldata idxs) external nonReentrant {
-        for (uint256 i = 0; i < idxs.length; ++i) {
-            withdraw(idxs[i]);
-        }
+        emit Withdraw(msg.sender, tokenId, userStake.amount);
     }
 
     /**
@@ -326,7 +365,6 @@ contract Staking is Initializable, PausableUpgradeable, AccessControlUpgradeable
         return _stakes;
     }
 
-
     function setAllowedDuration(
         uint256 _duration,
         bool _allowed
@@ -335,7 +373,9 @@ contract Staking is Initializable, PausableUpgradeable, AccessControlUpgradeable
         emit UpdateAllowedDuration(_duration, _allowed);
     }
 
-    function setMinStakeAmount(uint256 _newMinStakeAmount) external onlyRole(CONTRACT_MANAGER_ROLE) {
+    function setMinStakeAmount(
+        uint256 _newMinStakeAmount
+    ) external onlyRole(CONTRACT_MANAGER_ROLE) {
         minStakeAmount = _newMinStakeAmount;
         emit UpdateMinStakeAmount(_newMinStakeAmount);
     }
@@ -344,7 +384,7 @@ contract Staking is Initializable, PausableUpgradeable, AccessControlUpgradeable
         uint256 _newWithdrawCooldown
     ) external onlyRole(CONTRACT_MANAGER_ROLE) {
         if (_newWithdrawCooldown > MAX_WITHDRAW_COOLDOWN) revert MaxWithdrawCooldown();
-        
+
         withdrawCooldown = _newWithdrawCooldown;
         emit UpdateWithdrawCooldown(_newWithdrawCooldown);
     }
@@ -354,6 +394,7 @@ contract Staking is Initializable, PausableUpgradeable, AccessControlUpgradeable
     }
 
     function unpause() external onlyRole(CONTRACT_MANAGER_ROLE) {
+        if (unlockedAll) revert Unlocked();
         _unpause();
     }
 
@@ -362,6 +403,7 @@ contract Staking is Initializable, PausableUpgradeable, AccessControlUpgradeable
      * @dev Only for emergency purposes
      */
     function emergencyUnlock() external onlyRole(EMERGENCY_MANAGER_ROLE) {
+        _pause();
         unlockedAll = true;
         emit EmergencyUnlock();
     }
