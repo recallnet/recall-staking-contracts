@@ -9,9 +9,13 @@ describe("Unit-tests for the Staking contract", () => {
         it("Deploy staking contract (without initialization)", async () => {
             const env = await loadFixture(prepareEnvWithoutInitialization);
 
-            expect(await env.stakingContract.stakeToken()).to.equal(ZeroAddress);
+            expect(await env.stakingContract.stakeToken()).to.equal(
+                ZeroAddress,
+            );
 
-            expect(await env.stakingContract.nftReceipt()).to.equal(ZeroAddress);
+            expect(await env.stakingContract.nftReceipt()).to.equal(
+                ZeroAddress,
+            );
 
             expect(await env.stakingContract.lastId()).to.equal(0);
 
@@ -23,19 +27,28 @@ describe("Unit-tests for the Staking contract", () => {
 
             expect(await env.stakingContract.unlockedAll()).to.equal(false);
 
-            expect(await env.stakingContract.allowedDurations(30 * DAY_SEC)).to.equal(false);
-            expect(await env.stakingContract.allowedDurations(60 * DAY_SEC)).to.equal(false);
-            expect(await env.stakingContract.allowedDurations(90 * DAY_SEC)).to.equal(false);
+            expect(
+                await env.stakingContract.allowedDurations(30 * DAY_SEC),
+            ).to.equal(false);
+            expect(
+                await env.stakingContract.allowedDurations(60 * DAY_SEC),
+            ).to.equal(false);
+            expect(
+                await env.stakingContract.allowedDurations(90 * DAY_SEC),
+            ).to.equal(false);
 
-            expect(await env.stakingContract.totalUserStaked(env.deployer)).to.equal(0);
+            expect(
+                await env.stakingContract.totalUserStaked(env.deployer),
+            ).to.equal(0);
 
             // default admin before initialization
             expect(
-                await env.stakingContract.hasRole(await env.stakingContract.DEFAULT_ADMIN_ROLE(), env.defaultAdmin)
+                await env.stakingContract.hasRole(
+                    await env.stakingContract.DEFAULT_ADMIN_ROLE(),
+                    env.defaultAdmin,
+                ),
             ).to.equal(false);
-
         });
-
     });
 
     describe("Initialization", () => {
@@ -43,7 +56,9 @@ describe("Unit-tests for the Staking contract", () => {
             const env = await loadFixture(prepareEnv);
 
             expect(await env.stakingContract.stakeToken()).to.equal(env.token);
-            expect(await env.stakingContract.nftReceipt()).to.equal(env.nftReceipt);
+            expect(await env.stakingContract.nftReceipt()).to.equal(
+                env.nftReceipt,
+            );
 
             expect(await env.stakingContract.lastId()).to.equal(0);
 
@@ -51,20 +66,34 @@ describe("Unit-tests for the Staking contract", () => {
 
             expect(await env.stakingContract.minStakeAmount()).to.equal(0);
 
-            expect(await env.stakingContract.withdrawCooldown()).to.equal(0);
+            expect(await env.stakingContract.withdrawCooldown()).to.equal(
+                30 * DAY_SEC,
+            );
 
             expect(await env.stakingContract.unlockedAll()).to.equal(false);
 
-            expect(await env.stakingContract.allowedDurations(30 * DAY_SEC)).to.equal(true);
-            expect(await env.stakingContract.allowedDurations(60 * DAY_SEC)).to.equal(true);
-            expect(await env.stakingContract.allowedDurations(90 * DAY_SEC)).to.equal(true);
+            expect(
+                await env.stakingContract.allowedDurations(30 * DAY_SEC),
+            ).to.equal(true);
+            expect(
+                await env.stakingContract.allowedDurations(60 * DAY_SEC),
+            ).to.equal(true);
+            expect(
+                await env.stakingContract.allowedDurations(90 * DAY_SEC),
+            ).to.equal(true);
 
-            expect(await env.stakingContract.totalUserStaked(env.deployer)).to.equal(0);
+            expect(
+                await env.stakingContract.totalUserStaked(env.deployer),
+            ).to.equal(0);
 
             // default admin after initialization
-            const DEFAULT_ADMIN_ROLE = await env.stakingContract.DEFAULT_ADMIN_ROLE();
+            const DEFAULT_ADMIN_ROLE =
+                await env.stakingContract.DEFAULT_ADMIN_ROLE();
             expect(
-                await env.stakingContract.hasRole(DEFAULT_ADMIN_ROLE, env.defaultAdmin)
+                await env.stakingContract.hasRole(
+                    DEFAULT_ADMIN_ROLE,
+                    env.defaultAdmin,
+                ),
             ).to.equal(true);
         });
 
@@ -73,8 +102,10 @@ describe("Unit-tests for the Staking contract", () => {
                 const env = await loadFixture(prepareEnvWithoutInitialization);
                 await expect(
                     env.stakingContract.initialize(
-                        ZeroAddress, env.nftReceipt, env.defaultAdmin
-                    )
+                        ZeroAddress,
+                        env.nftReceipt,
+                        env.defaultAdmin,
+                    ),
                 ).revertedWithCustomError(env.stakingContract, "ZeroAddress");
             });
 
@@ -82,8 +113,10 @@ describe("Unit-tests for the Staking contract", () => {
                 const env = await loadFixture(prepareEnvWithoutInitialization);
                 await expect(
                     env.stakingContract.initialize(
-                        env.token, ZeroAddress, env.defaultAdmin
-                    )
+                        env.token,
+                        ZeroAddress,
+                        env.defaultAdmin,
+                    ),
                 ).revertedWithCustomError(env.stakingContract, "ZeroAddress");
             });
 
@@ -91,104 +124,137 @@ describe("Unit-tests for the Staking contract", () => {
                 const env = await loadFixture(prepareEnvWithoutInitialization);
                 await expect(
                     env.stakingContract.initialize(
-                        env.token, env.nftReceipt, ZeroAddress
-                    )
+                        env.token,
+                        env.nftReceipt,
+                        ZeroAddress,
+                    ),
                 ).revertedWithCustomError(env.stakingContract, "ZeroAddress");
             });
         });
-
     });
 
     describe("{stake} function", () => {
         it("Stake for allowed duration of 30 days", async () => {
             const env = await loadFixture(prepareEnv);
             const duration = 30 * DAY_SEC;
-            const stakeId = await env.stakingContract.lastId() + 1n;
+            const newTokenId = (await env.stakingContract.lastId()) + 1n;
 
-            await env.token.connect(env.alice).approve(env.stakingContract, env.aliceBalance);
+            await env.token
+                .connect(env.alice)
+                .approve(env.stakingContract, env.aliceBalance);
 
-            const stakeTime = await time.latest() + 30;
+            const stakeTime = (await time.latest()) + 30;
             await time.setNextBlockTimestamp(stakeTime);
 
-            const tx = env.stakingContract.connect(env.alice).stake(env.aliceBalance, duration);
-            await expect(tx)
-                .to.changeTokenBalances(
-                    env.token,
-                    [env.alice, env.stakingContract],
-                    [env.aliceBalance * (-1n), env.aliceBalance]
-                );
+            const tx = env.stakingContract
+                .connect(env.alice)
+                .stake(env.aliceBalance, duration);
+            await expect(tx).to.changeTokenBalances(
+                env.token,
+                [env.alice, env.stakingContract],
+                [env.aliceBalance * -1n, env.aliceBalance],
+            );
 
             await expect(tx)
                 .emit(env.stakingContract, "Stake")
-                ;// @todo .withArgs(env.alice.address, stakeId, env.aliceBalance, duration);
+                .withArgs(
+                    env.alice.address,
+                    newTokenId,
+                    env.aliceBalance,
+                    stakeTime,
+                    stakeTime + duration,
+                );
 
             (await tx).wait();
 
-            expect(await env.stakingContract.lastId()).to.equal(stakeId);
+            expect(await env.stakingContract.lastId()).to.equal(newTokenId);
 
-            const stakeInfo = await env.stakingContract.stakeInfo(stakeId);
+            const stakeInfo = await env.stakingContract.stakeInfo(newTokenId);
             expect(stakeInfo.amount).to.equal(env.aliceBalance);
             expect(stakeInfo.startTime).to.equal(stakeTime);
             expect(stakeInfo.lockupEndTime).to.equal(stakeTime + duration);
             expect(stakeInfo.withdrawAllowedTime).to.equal(0);
 
-            expect(await env.stakingContract.totalUserStaked(env.alice)).to.equal(env.aliceBalance);
-            expect(await env.stakingContract.totalStaked()).to.equal(env.aliceBalance);
+            expect(
+                await env.stakingContract.totalUserStaked(env.alice),
+            ).to.equal(env.aliceBalance);
+            expect(await env.stakingContract.totalStaked()).to.equal(
+                env.aliceBalance,
+            );
 
             // nftReceipt
-            expect(await env.nftReceipt.ownerOf(stakeId)).to.equal(env.alice);
+            expect(await env.nftReceipt.ownerOf(newTokenId)).to.equal(
+                env.alice,
+            );
         });
 
         it("Stake for allowed duration of 60 days", async () => {
             const env = await loadFixture(prepareEnv);
             const duration = 60 * DAY_SEC;
-            const stakeId = await env.stakingContract.lastId() + 1n;
+            const tokenId = (await env.stakingContract.lastId()) + 1n;
 
-            await env.token.connect(env.bob).approve(env.stakingContract, env.bobBalance);
+            await env.token
+                .connect(env.bob)
+                .approve(env.stakingContract, env.bobBalance);
 
-            const stakeTime = await time.latest() + 30;
+            const stakeTime = (await time.latest()) + 30;
             await time.setNextBlockTimestamp(stakeTime);
 
-            const tx = env.stakingContract.connect(env.bob).stake(env.bobBalance, duration);
+            const tx = env.stakingContract
+                .connect(env.bob)
+                .stake(env.bobBalance, duration);
 
-            await expect(tx)
-                .to.changeTokenBalances(
-                    env.token,
-                    [env.bob, env.stakingContract],
-                    [env.bobBalance * (-1n), env.bobBalance]
-                );
+            await expect(tx).to.changeTokenBalances(
+                env.token,
+                [env.bob, env.stakingContract],
+                [env.bobBalance * -1n, env.bobBalance],
+            );
 
             await expect(tx)
                 .emit(env.stakingContract, "Stake")
-                ;// @todo .withArgs(env.bob, stakeId, env.bobBalance, duration);
+                .withArgs(
+                    env.bob,
+                    tokenId,
+                    env.bobBalance,
+                    stakeTime,
+                    stakeTime + duration,
+                );
 
             (await tx).wait();
 
-            expect(await env.stakingContract.lastId()).to.equal(stakeId);
+            expect(await env.stakingContract.lastId()).to.equal(tokenId);
 
-            const stakeInfo = await env.stakingContract.stakeInfo(stakeId);
+            const stakeInfo = await env.stakingContract.stakeInfo(tokenId);
             expect(stakeInfo.amount).to.equal(env.bobBalance);
             expect(stakeInfo.startTime).to.equal(stakeTime);
             expect(stakeInfo.lockupEndTime).to.equal(stakeTime + duration);
             expect(stakeInfo.withdrawAllowedTime).to.equal(0);
 
-            expect(await env.stakingContract.totalUserStaked(env.bob)).to.equal(env.bobBalance);
-            expect(await env.stakingContract.totalStaked()).to.equal(env.bobBalance);
+            expect(await env.stakingContract.totalUserStaked(env.bob)).to.equal(
+                env.bobBalance,
+            );
+            expect(await env.stakingContract.totalStaked()).to.equal(
+                env.bobBalance,
+            );
 
             // nftReceipt
-            expect(await env.nftReceipt.ownerOf(stakeId)).to.equal(env.bob);
+            expect(await env.nftReceipt.ownerOf(tokenId)).to.equal(env.bob);
         });
 
         describe("Reverts", () => {
-
             it("Stake with zero amount", async () => {
                 const env = await loadFixture(prepareEnv);
                 const amount = 0;
                 const duration = 30 * DAY_SEC;
 
                 await expect(
-                    env.stakingContract.connect(env.alice).stake(amount, duration)
-                ).revertedWithCustomError(env.stakingContract, "NotAllowedAmount");
+                    env.stakingContract
+                        .connect(env.alice)
+                        .stake(amount, duration),
+                ).revertedWithCustomError(
+                    env.stakingContract,
+                    "NotAllowedAmount",
+                );
             });
 
             it("Stake with zero duration", async () => {
@@ -197,14 +263,24 @@ describe("Unit-tests for the Staking contract", () => {
                 let duration = 0;
 
                 await expect(
-                    env.stakingContract.connect(env.alice).stake(amount, duration)
-                ).revertedWithCustomError(env.stakingContract, "NotAllowedDuration");
+                    env.stakingContract
+                        .connect(env.alice)
+                        .stake(amount, duration),
+                ).revertedWithCustomError(
+                    env.stakingContract,
+                    "NotAllowedDuration",
+                );
 
                 duration = 100 * DAY_SEC;
 
                 await expect(
-                    env.stakingContract.connect(env.alice).stake(amount, duration)
-                ).revertedWithCustomError(env.stakingContract, "NotAllowedDuration");
+                    env.stakingContract
+                        .connect(env.alice)
+                        .stake(amount, duration),
+                ).revertedWithCustomError(
+                    env.stakingContract,
+                    "NotAllowedDuration",
+                );
             });
 
             it("Stake with duration greater than max duration", async () => {
@@ -213,125 +289,394 @@ describe("Unit-tests for the Staking contract", () => {
                 const duration = 90 * DAY_SEC + 1;
 
                 await expect(
-                    env.stakingContract.connect(env.alice).stake(amount, duration)
-                ).revertedWithCustomError(env.stakingContract, "NotAllowedDuration");
+                    env.stakingContract
+                        .connect(env.alice)
+                        .stake(amount, duration),
+                ).revertedWithCustomError(
+                    env.stakingContract,
+                    "NotAllowedDuration",
+                );
             });
 
             it("Stake with amount less than minStakeAmount", async () => {
                 const env = await loadFixture(prepareEnvWithGrantedRoles);
 
                 const minStakeAmount = WeiPerEther * 100n;
-                await env.stakingContract.connect(env.managerAdmin)
+                await env.stakingContract
+                    .connect(env.managerAdmin)
                     .setMinStakeAmount(minStakeAmount);
 
                 const amount = minStakeAmount - 1n;
                 const duration = 30 * DAY_SEC;
 
+                await expect(
+                    env.stakingContract
+                        .connect(env.alice)
+                        .stake(amount, duration),
+                ).revertedWithCustomError(
+                    env.stakingContract,
+                    "NotAllowedAmount",
+                );
+            });
+
+            it("When paused", async () => {
+                const env = await loadFixture(prepareEnvWithGrantedRoles);
+
+                await env.stakingContract.connect(env.pauserAdmin).pause();
+
+                const amount = WeiPerEther * 100n;
+                const duration = 30 * DAY_SEC;
 
                 await expect(
-                    env.stakingContract.connect(env.alice).stake(amount, duration)
-                ).revertedWithCustomError(env.stakingContract, "NotAllowedAmount");
+                    env.stakingContract
+                        .connect(env.alice)
+                        .stake(amount, duration),
+                ).revertedWithCustomError(env.stakingContract, "EnforcedPause");
             });
         });
-
     });
 
-    describe("{relock} partial function", () => {
+    // @todo
+    describe("{relock} 'partial' function", () => {
         it("Relock for allowed duration of 30 days", async () => {
             const env = await loadFixture(prepareEnvWithStakes);
             await time.increaseTo(env.aliceStake0.lockupEndTime);
 
-            const stakeId = 1;
+            const tokenId = 1;
             const newAliceDuration = 60 * DAY_SEC;
             const newAliceAmount = env.aliceBalance / 2n;
             const lastId = await env.stakingContract.lastId();
-            const nextStakeId = lastId + 1n;
+            const newTokenId = lastId + 1n;
 
             const tx = env.stakingContract
-                .connect(env.alice)["relock(uint256,uint256,uint256)"](
-                    stakeId,
-                    newAliceDuration,
-                    newAliceAmount
-                );
+                .connect(env.alice)
+                [
+                    "relock(uint256,uint256,uint256)"
+                ](tokenId, newAliceDuration, newAliceAmount);
 
-            await expect(tx)
-                .to.changeTokenBalances(
-                    env.token,
-                    [env.alice, env.stakingContract],
-                    [0, 0]
-                );
+            await expect(tx).to.changeTokenBalances(
+                env.token,
+                [env.alice, env.stakingContract],
+                [0, 0],
+            );
 
             await expect(tx)
                 .emit(env.stakingContract, "Relock")
-                .withArgs(env.alice.address, stakeId, newAliceAmount);
-            await expect(tx)
-                .emit(env.stakingContract, "Stake");
-                // .withArgs(env.alice.address, nextStakeId, newAliceAmount);
+                .withArgs(env.alice.address, tokenId, newAliceAmount);
+            await expect(tx).emit(env.stakingContract, "Stake");
+            // .withArgs(env.alice.address, newTokenId, newAliceAmount);
 
             (await tx).wait();
 
-            expect(await env.stakingContract.lastId()).to.equal(nextStakeId);
+            expect(await env.stakingContract.lastId()).to.equal(newTokenId);
 
-            const stakeInfo0 = await env.stakingContract.stakeInfo(stakeId);
+            const stakeInfo0 = await env.stakingContract.stakeInfo(tokenId);
             expect(stakeInfo0.amount).to.equal(env.aliceBalance / 2n);
             expect(stakeInfo0.startTime).to.equal(env.aliceStake0.startTime);
-            expect(stakeInfo0.lockupEndTime).to.equal(env.aliceStake0.lockupEndTime);
+            expect(stakeInfo0.lockupEndTime).to.equal(
+                env.aliceStake0.lockupEndTime,
+            );
             expect(stakeInfo0.withdrawAllowedTime).to.equal(0);
 
-            const stakeInfo1 = await env.stakingContract.stakeInfo(nextStakeId);
+            const stakeInfo1 = await env.stakingContract.stakeInfo(newTokenId);
             expect(stakeInfo1.amount).to.equal(env.aliceBalance / 2n);
             // expect(stakeInfo1.startTime).to.equal(env.aliceStake0.startTime);
             // expect(stakeInfo1.lockupEndTime).to.equal(env.aliceStake0.lockupEndTime);
             expect(stakeInfo1.withdrawAllowedTime).to.equal(0);
 
-            expect(await env.stakingContract.totalUserStaked(env.alice)).to.equal(env.aliceBalance);
-            
+            expect(
+                await env.stakingContract.totalUserStaked(env.alice),
+            ).to.equal(env.aliceBalance);
+
             expect(await env.stakingContract.totalStaked()).to.equal(
-                env.aliceBalance + env.bobBalance + env.carolBalance
+                env.aliceBalance + env.bobBalance + env.carolBalance,
             );
 
             // nftReceipt
-            expect(await env.nftReceipt.ownerOf(stakeId)).to.equal(env.alice);
-            expect(await env.nftReceipt.ownerOf(nextStakeId)).to.equal(env.alice);
-
+            expect(await env.nftReceipt.ownerOf(tokenId)).to.equal(env.alice);
+            expect(await env.nftReceipt.ownerOf(newTokenId)).to.equal(
+                env.alice,
+            );
         });
 
+        describe("Reverts", () => {});
+    });
 
+    describe("{unstake} 'partial' function", () => {
+        it("Unstake for allowed duration of 30 days", async () => {
+            const env = await loadFixture(prepareEnvWithStakes);
+            const lastId = await env.stakingContract.lastId();
+            const newTokenId = lastId + 1n;
+
+            const withdrawCooldown =
+                await env.stakingContract.withdrawCooldown();
+
+            await time.setNextBlockTimestamp(env.aliceStake0.lockupEndTime);
+            const tokenId = 1;
+            const amountToUnstake = env.aliceStake0.amount - WeiPerEther * 100n;
+            const amountRemaining = env.aliceStake0.amount - amountToUnstake;
+            const tx = env.stakingContract
+                .connect(env.alice)
+                ["unstake(uint256,uint256)"](tokenId, amountToUnstake);
+
+            await expect(tx).to.changeTokenBalances(
+                env.token,
+                [env.alice, env.stakingContract],
+                [0, 0],
+            );
+
+            await expect(tx)
+                .emit(env.stakingContract, "Unstake")
+                .withArgs(env.alice, tokenId, amountToUnstake);
+
+            await expect(tx)
+                .emit(env.stakingContract, "Stake")
+                .withArgs(
+                    env.alice,
+                    newTokenId,
+                    amountRemaining,
+                    env.aliceStake0.startTime,
+                    env.aliceStake0.lockupEndTime,
+                );
+
+            (await tx).wait();
+
+            expect(await env.stakingContract.lastId()).to.equal(newTokenId);
+
+            const stakeInfoOld = await env.stakingContract.stakeInfo(tokenId);
+            expect(stakeInfoOld.amount).to.equal(amountToUnstake);
+            expect(stakeInfoOld.startTime).to.equal(env.aliceStake0.startTime);
+            expect(stakeInfoOld.lockupEndTime).to.equal(
+                env.aliceStake0.lockupEndTime,
+            );
+            expect(stakeInfoOld.withdrawAllowedTime).to.equal(
+                BigInt(env.aliceStake0.lockupEndTime) + withdrawCooldown,
+            );
+
+            const stakeInfoNew =
+                await env.stakingContract.stakeInfo(newTokenId);
+            expect(stakeInfoNew.amount).to.equal(amountRemaining);
+            expect(stakeInfoNew.startTime).to.equal(env.aliceStake0.startTime);
+            expect(stakeInfoNew.lockupEndTime).to.equal(
+                env.aliceStake0.lockupEndTime,
+            );
+            expect(stakeInfoNew.withdrawAllowedTime).to.equal(0);
+
+            expect(
+                await env.stakingContract.totalUserStaked(env.alice),
+            ).to.equal(env.aliceBalance);
+            expect(stakeInfoOld.amount + stakeInfoNew.amount).to.equal(
+                env.aliceBalance,
+            );
+            // nftReceipt
+            expect(await env.nftReceipt.ownerOf(tokenId)).to.equal(env.alice);
+            expect(await env.nftReceipt.ownerOf(newTokenId)).to.equal(
+                env.alice,
+            );
+        });
 
         describe("Reverts", () => {
+            it("In case of too early for unstake", async () => {
+                const env = await loadFixture(prepareEnvWithStakes);
+                await time.setNextBlockTimestamp(
+                    env.aliceStake0.lockupEndTime - 1000,
+                );
 
+                const tokenId = 1;
+                const amountToUnstake = env.aliceStake0.amount / 2n;
+                await expect(
+                    env.stakingContract
+                        .connect(env.alice)
+                        ["unstake(uint256,uint256)"](tokenId, amountToUnstake),
+                ).revertedWithCustomError(
+                    env.stakingContract,
+                    "TooEarlyForUnstake",
+                );
+            });
+
+            it("In case not stake owner", async () => {
+                const env = await loadFixture(prepareEnvWithStakes);
+                await time.increaseTo(env.aliceStake0.lockupEndTime);
+
+                const tokenId = 1;
+                const amountToUnstake = env.aliceStake0.amount / 2n;
+
+                await expect(
+                    env.stakingContract
+                        .connect(env.bob)
+                        ["unstake(uint256,uint256)"](tokenId, amountToUnstake),
+                )
+                    .revertedWithCustomError(
+                        env.stakingContract,
+                        "NotStakeOwner",
+                    )
+                    .withArgs(tokenId);
+
+                await expect(
+                    env.stakingContract
+                        .connect(env.carol)
+                        ["unstake(uint256,uint256)"](tokenId, amountToUnstake),
+                )
+                    .revertedWithCustomError(
+                        env.stakingContract,
+                        "NotStakeOwner",
+                    )
+                    .withArgs(tokenId);
+            });
+
+            it("In case amount exceeds stake amount (with Panic)", async () => {
+                const env = await loadFixture(prepareEnvWithStakes);
+                await time.setNextBlockTimestamp(env.aliceStake0.lockupEndTime);
+
+                const tokenId = 1;
+                const amountToUnstake = env.aliceStake0.amount + 1n;
+                await expect(
+                    env.stakingContract
+                        .connect(env.alice)
+                        ["unstake(uint256,uint256)"](tokenId, amountToUnstake),
+                ).revertedWithPanic();
+            });
+
+            it("When paused", async () => {
+                const env = await loadFixture(prepareEnvWithStakes);
+
+                await env.stakingContract.connect(env.pauserAdmin).pause();
+                await time.setNextBlockTimestamp(env.aliceStake0.lockupEndTime);
+
+                const tokenId = 1;
+                const amountToUnstake = env.aliceStake0.amount - 1n;
+
+                await expect(
+                    env.stakingContract
+                        .connect(env.bob)
+                        ["unstake(uint256,uint256)"](tokenId, amountToUnstake),
+                )
+                    .revertedWithCustomError(env.stakingContract, "EnforcedPause");
+
+            });
+        });
+    });
+
+    describe("{unstake} 'full' function", () => {
+        it("Unstake for allowed duration of 30 days", async () => {
+            // @todo
+        });
+
+        describe("Reverts", () => {
+            it("In case of too early for unstake", async () => {
+                const env = await loadFixture(prepareEnvWithStakes);
+                await time.setNextBlockTimestamp(
+                    env.aliceStake0.lockupEndTime - 1000,
+                );
+
+                const tokenId = 1;
+                await expect(
+                    env.stakingContract
+                        .connect(env.alice)
+                        ["unstake(uint256)"](tokenId),
+                ).revertedWithCustomError(
+                    env.stakingContract,
+                    "TooEarlyForUnstake",
+                );
+            });
+
+            it("In case not stake owner", async () => {
+                const env = await loadFixture(prepareEnvWithStakes);
+                await time.increaseTo(env.aliceStake0.lockupEndTime);
+
+                const tokenId = 1;
+
+                await expect(
+                    env.stakingContract
+                        .connect(env.bob)
+                        ["unstake(uint256)"](tokenId),
+                )
+                    .revertedWithCustomError(
+                        env.stakingContract,
+                        "NotStakeOwner",
+                    )
+                    .withArgs(tokenId);
+
+                await expect(
+                    env.stakingContract
+                        .connect(env.carol)
+                        ["unstake(uint256)"](tokenId),
+                )
+                    .revertedWithCustomError(
+                        env.stakingContract,
+                        "NotStakeOwner",
+                    )
+                    .withArgs(tokenId);
+
+                await time.increaseTo(env.bobStake1.lockupEndTime);
+
+                const bobTokenId = 3;
+                await expect(
+                    env.stakingContract
+                        .connect(env.carol)
+                        ["unstake(uint256)"](bobTokenId),
+                )
+                    .revertedWithCustomError(
+                        env.stakingContract,
+                        "NotStakeOwner",
+                    )
+                    .withArgs(bobTokenId);
+            });
+
+            it("When paused", async () => {
+                const env = await loadFixture(prepareEnvWithStakes);
+
+                await env.stakingContract.connect(env.pauserAdmin).pause();
+                await time.setNextBlockTimestamp(env.aliceStake0.lockupEndTime);
+
+                const tokenId = 1;
+
+                await expect(
+                    env.stakingContract
+                        .connect(env.bob)
+                        ["unstake(uint256)"](tokenId),
+                )
+                    .revertedWithCustomError(env.stakingContract, "EnforcedPause");
+
+            });
         });
     });
 });
 
-
-
 async function prepareEnvWithStakes() {
-    const env = await loadFixture(prepareEnv);
+    const env = await loadFixture(prepareEnvWithGrantedRoles);
 
-    await env.token.connect(env.alice).approve(env.stakingContract, env.aliceBalance);
-    await env.token.connect(env.bob).approve(env.stakingContract, env.bobBalance);
-    await env.token.connect(env.carol).approve(env.stakingContract, env.carolBalance);
+    await env.token
+        .connect(env.alice)
+        .approve(env.stakingContract, env.aliceBalance);
+    await env.token
+        .connect(env.bob)
+        .approve(env.stakingContract, env.bobBalance);
+    await env.token
+        .connect(env.carol)
+        .approve(env.stakingContract, env.carolBalance);
 
     // alice 1 stake for 10k
     const aliceDuration0 = 30 * DAY_SEC;
     const aliceAmount0 = env.aliceBalance;
-    const aliceStartTime0 = await time.latest() + 130;
+    const aliceStartTime0 = (await time.latest()) + 130;
     const aliceEndTime0 = aliceStartTime0 + aliceDuration0;
     await time.setNextBlockTimestamp(aliceStartTime0);
-    await env.stakingContract.connect(env.alice).stake(aliceAmount0, aliceDuration0);
+    await env.stakingContract
+        .connect(env.alice)
+        .stake(aliceAmount0, aliceDuration0);
 
     const aliceStake0 = {
         amount: aliceAmount0,
         startTime: aliceStartTime0,
         lockupEndTime: aliceEndTime0,
         withdrawAllowedTime: 0,
-    }
+    };
 
     // bob 2 stakes for 10k
     const bobDuration0 = 30 * DAY_SEC;
     const bobAmount0 = env.bobBalance / 2n;
-    const bobStartTime0 = await time.latest() + 130;
+    const bobStartTime0 = (await time.latest()) + 130;
     const bobEndTime0 = bobStartTime0 + bobDuration0;
     await time.setNextBlockTimestamp(bobStartTime0);
     await env.stakingContract.connect(env.bob).stake(bobAmount0, bobDuration0);
@@ -340,11 +685,11 @@ async function prepareEnvWithStakes() {
         startTime: bobStartTime0,
         lockupEndTime: bobEndTime0,
         withdrawAllowedTime: 0,
-    }
+    };
 
     const bobDuration1 = 60 * DAY_SEC;
     const bobAmount1 = env.bobBalance / 2n;
-    const bobStartTime1 = await time.latest() + 130;
+    const bobStartTime1 = (await time.latest()) + 130;
     const bobEndTime1 = bobStartTime1 + bobDuration1;
     await time.setNextBlockTimestamp(bobStartTime1);
     await env.stakingContract.connect(env.bob).stake(bobAmount1, bobDuration1);
@@ -353,48 +698,53 @@ async function prepareEnvWithStakes() {
         startTime: bobStartTime1,
         lockupEndTime: bobEndTime1,
         withdrawAllowedTime: 0,
-    }
+    };
 
     // carol 3 stakes for 10k
     const carolDuration0 = 30 * DAY_SEC;
     const carolAmount0 = env.carolBalance / 3n;
-    const carolStartTime0 = await time.latest() + 130;
+    const carolStartTime0 = (await time.latest()) + 130;
     const carolEndTime0 = carolStartTime0 + carolDuration0;
     await time.setNextBlockTimestamp(carolStartTime0);
-    await env.stakingContract.connect(env.carol).stake(carolAmount0, carolDuration0);
+    await env.stakingContract
+        .connect(env.carol)
+        .stake(carolAmount0, carolDuration0);
     const carolStake0 = {
         amount: carolAmount0,
         startTime: carolStartTime0,
         lockupEndTime: carolEndTime0,
         withdrawAllowedTime: 0,
-    }
+    };
 
     const carolDuration1 = 60 * DAY_SEC;
     const carolAmount1 = env.carolBalance / 3n;
-    const carolStartTime1 = await time.latest() + 130;
+    const carolStartTime1 = (await time.latest()) + 130;
     const carolEndTime1 = carolStartTime1 + carolDuration1;
     await time.setNextBlockTimestamp(carolStartTime1);
-    await env.stakingContract.connect(env.carol).stake(carolAmount1, carolDuration1);
+    await env.stakingContract
+        .connect(env.carol)
+        .stake(carolAmount1, carolDuration1);
     const carolStake1 = {
         amount: carolAmount1,
         startTime: carolStartTime1,
         lockupEndTime: carolEndTime1,
         withdrawAllowedTime: 0,
-    }
+    };
 
     const carolDuration2 = 90 * DAY_SEC;
     const carolAmount2 = env.carolBalance / 3n;
-    const carolStartTime2 = await time.latest() + 130;
+    const carolStartTime2 = (await time.latest()) + 130;
     const carolEndTime2 = carolStartTime2 + carolDuration2;
     await time.setNextBlockTimestamp(carolStartTime2);
-    await env.stakingContract.connect(env.carol).stake(carolAmount2, carolDuration2);
+    await env.stakingContract
+        .connect(env.carol)
+        .stake(carolAmount2, carolDuration2);
     const carolStake2 = {
         amount: carolAmount2,
         startTime: carolStartTime2,
         lockupEndTime: carolEndTime2,
         withdrawAllowedTime: 0,
-    }
-
+    };
 
     return {
         ...env,
@@ -409,11 +759,28 @@ async function prepareEnvWithStakes() {
 
 async function prepareEnvWithGrantedRoles() {
     const env = await loadFixture(prepareEnv);
-    await env.stakingContract.connect(env.defaultAdmin)
-        .grantRole(await env.stakingContract.CONTRACT_MANAGER_ROLE(), env.managerAdmin);
-    await env.stakingContract.connect(env.defaultAdmin)
-        .grantRole(await env.stakingContract.EMERGENCY_MANAGER_ROLE(), env.emergencyAdmin);
+    await env.stakingContract
+        .connect(env.defaultAdmin)
+        .grantRole(
+            await env.stakingContract.CONTRACT_MANAGER_ROLE(),
+            env.managerAdmin,
+        );
+    await env.stakingContract
+        .connect(env.defaultAdmin)
+        .grantRole(
+            await env.stakingContract.EMERGENCY_MANAGER_ROLE(),
+            env.emergencyAdmin,
+        );
 
+    await env.stakingContract
+        .connect(env.defaultAdmin)
+        .grantRole(await env.stakingContract.PAUSER_ROLE(), env.pauserAdmin);
+    await env.stakingContract
+        .connect(env.defaultAdmin)
+        .grantRole(
+            await env.stakingContract.UNPAUSER_ROLE(),
+            env.unpauserAdmin,
+        );
     return {
         ...env,
     };
@@ -423,7 +790,9 @@ async function prepareEnv() {
     const env = await loadFixture(prepareEnvWithoutInitialization);
 
     await env.stakingContract.initialize(
-        env.token, env.nftReceipt, env.defaultAdmin
+        env.token,
+        env.nftReceipt,
+        env.defaultAdmin,
     );
 
     return {
@@ -431,16 +800,17 @@ async function prepareEnv() {
     };
 }
 
-
 async function prepareEnvWithoutInitialization() {
     const [
         deployer,
         defaultAdmin,
         managerAdmin,
         emergencyAdmin,
+        pauserAdmin,
+        unpauserAdmin,
         alice,
         bob,
-        carol
+        carol,
     ] = await ethers.getSigners();
     const proxyOwner = deployer;
 
@@ -455,11 +825,7 @@ async function prepareEnvWithoutInitialization() {
         proxyOwner,
         "0x",
     );
-    const stakingContract = await ethers.getContractAt(
-        "Staking",
-        stakingProxy,
-    );
-
+    const stakingContract = await ethers.getContractAt("Staking", stakingProxy);
 
     const tokenFactory = await ethers.getContractFactory("Token");
     const token = await tokenFactory.deploy();
@@ -480,6 +846,9 @@ async function prepareEnvWithoutInitialization() {
         defaultAdmin,
         managerAdmin,
         emergencyAdmin,
+        pauserAdmin,
+        unpauserAdmin,
+
         alice,
         bob,
         carol,
