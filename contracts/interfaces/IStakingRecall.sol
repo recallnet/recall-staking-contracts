@@ -1,18 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-
-
 error ZeroAddress();
 error NotAllowedAmount(uint256 amount);
 error NotAllowedDuration(uint256 duration);
-error AlreadyUnstaked();
 error TooEarlyForUnstake();
 error TooEarlyForRelock();
 error NotUnstakedYet();
 error NotStakeOwner(uint256 id);
-error InvalidArraysLength();
 error MaxWithdrawCooldown();
+error Unlocked();
+
 
 interface IStaking {
     struct StakeInfo {

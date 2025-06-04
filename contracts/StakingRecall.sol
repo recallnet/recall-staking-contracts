@@ -28,12 +28,10 @@ import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet
 error ZeroAddress();
 error NotAllowedAmount(uint256 amount);
 error NotAllowedDuration(uint256 duration);
-error AlreadyUnstaked();
 error TooEarlyForUnstake();
 error TooEarlyForRelock();
 error NotUnstakedYet();
 error NotStakeOwner(uint256 id);
-error InvalidArraysLength();
 error MaxWithdrawCooldown();
 error Unlocked();
 
@@ -56,7 +54,6 @@ contract Staking is
     );
 
     event Relock(address staker, uint256 stakeId, uint256 duration);
-
     event Unstake(address staker, uint256 stakeId, uint256 amount);
     event Withdraw(address staker, uint256 stakeId, uint256 amount);
 
@@ -90,6 +87,10 @@ contract Staking is
     bytes32 public constant CONTRACT_MANAGER_ROLE = keccak256("CONTRACT_MANAGER_ROLE");
 
     bytes32 public constant EMERGENCY_MANAGER_ROLE = keccak256("EMERGENCY_MANAGER_ROLE");
+
+    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
+
+    bytes32 public constant UNPAUSER_ROLE = keccak256("UNPAUSER_ROLE");
 
     struct StakeInfo {
         uint256 amount;
@@ -141,6 +142,8 @@ contract Staking is
         allowedDurations[30 days] = true;
         allowedDurations[60 days] = true;
         allowedDurations[90 days] = true;
+
+        withdrawCooldown = 30 days;
     }
 
     /**
@@ -157,25 +160,25 @@ contract Staking is
         if (!allowedDurations[duration]) revert NotAllowedDuration(duration);
         if (amount == 0 || amount < minStakeAmount) revert NotAllowedAmount(amount);
 
-        uint256 _lastId = ++lastId;
+        uint256 newTokenId = ++lastId;
 
         totalUserStaked[msg.sender] += amount;
         totalStaked += amount;
 
         uint256 lockupEndTime = block.timestamp + duration;
-        _tokenIds[msg.sender].add(_lastId);
-        stakeInfo[_lastId] = StakeInfo(
+        _tokenIds[msg.sender].add(newTokenId);
+        stakeInfo[newTokenId] = StakeInfo(
             uint256(amount),
             uint64(block.timestamp),
             uint64(lockupEndTime),
             0
         );
 
-        nftReceipt.mint(msg.sender, _lastId);
+        nftReceipt.mint(msg.sender, newTokenId);
         stakeToken.safeTransferFrom(msg.sender, address(this), amount);
 
-        emit Stake(msg.sender, _lastId, amount, block.timestamp, lockupEndTime);
-        return _lastId;
+        emit Stake(msg.sender, newTokenId, amount, block.timestamp, lockupEndTime);
+        return newTokenId;
     }
 
     /**
@@ -205,27 +208,26 @@ contract Staking is
         userOldStake.amount -= newLockAmount;
 
         // create new stakeInfo
-        uint256 _lastId = ++lastId;
+        uint256 newTokenId = ++lastId;
 
-        _tokenIds[msg.sender].add(_lastId);
-        stakeInfo[_lastId] = StakeInfo(
+        _tokenIds[msg.sender].add(newTokenId);
+        stakeInfo[newTokenId] = StakeInfo(
             uint256(newLockAmount),
             uint64(block.timestamp),
             uint64(newLockDuration),
             0
         );
-        nftReceipt.mint(msg.sender, _lastId);
+        nftReceipt.mint(msg.sender, newTokenId);
 
-        // @todo consider emitting two kinds of events: Relock and Stake
         emit Relock(msg.sender, tokenId, userOldStake.amount);
         emit Stake(
             msg.sender,
-            _lastId,
+            newTokenId,
             newLockAmount,
             block.timestamp,
             block.timestamp + newLockDuration
         );
-        return _lastId;
+        return newTokenId;
     }
 
     /**
@@ -246,9 +248,9 @@ contract Staking is
         delete stakeInfo[tokenId];
 
         // create new stakeInfo
-        uint256 _lastId = ++lastId;
-        _tokenIds[msg.sender].add(_lastId);
-        stakeInfo[_lastId] = StakeInfo(
+        uint256 newTokenId = ++lastId;
+        _tokenIds[msg.sender].add(newTokenId);
+        stakeInfo[newTokenId] = StakeInfo(
             uint256(userOldStake.amount),
             uint64(block.timestamp),
             uint64(block.timestamp + newLockDuration),
@@ -256,26 +258,25 @@ contract Staking is
         );
 
         nftReceipt.burn(msg.sender, tokenId);
-        nftReceipt.mint(msg.sender, _lastId);
+        nftReceipt.mint(msg.sender, newTokenId);
 
-        // @todo events
         emit Relock(msg.sender, tokenId, 0);
         emit Stake(
             msg.sender,
-            _lastId,
+            newTokenId,
             userOldStake.amount,
             block.timestamp,
             block.timestamp + newLockDuration
         );
 
-        return _lastId;
+        return newTokenId;
     }
 
     /**
      * @notice Partial unstake of the stake
       each partial unstake must create a new token id. 
      */
-    function unstake(
+    function unstake(  // @todo case for amountToUnstake == stake.amount
         uint256 tokenId,
         uint256 amountToUnstake
     ) public whenNotPaused nonReentrant returns (uint256) {
@@ -283,31 +284,31 @@ contract Staking is
         if (block.timestamp < userOldStake.lockupEndTime) revert TooEarlyForUnstake();
         if (!_tokenIds[msg.sender].contains(tokenId)) revert NotStakeOwner(tokenId);
 
+        // @dev reverts in case amount exceeds stake amount
         uint256 newStakeAmount = userOldStake.amount - amountToUnstake;
-        userOldStake.amount -= amountToUnstake;
+        userOldStake.amount = amountToUnstake;
         userOldStake.withdrawAllowedTime = uint64(block.timestamp + withdrawCooldown);
 
         // create new unlocked stakeInfo with remaining amount
-        uint256 _lastId = ++lastId;
-        _tokenIds[msg.sender].add(_lastId);
-        stakeInfo[_lastId] = StakeInfo(
+        uint256 newTokenId = ++lastId;
+        _tokenIds[msg.sender].add(newTokenId);
+        stakeInfo[newTokenId] = StakeInfo(
             uint256(newStakeAmount),
             uint64(userOldStake.startTime),
             uint64(userOldStake.lockupEndTime),
             0
         );
-        nftReceipt.mint(msg.sender, _lastId);
+        nftReceipt.mint(msg.sender, newTokenId);
 
-        // @audit-ok events
         emit Unstake(msg.sender, tokenId, amountToUnstake);
         emit Stake(
             msg.sender,
-            _lastId,
+            newTokenId,
             newStakeAmount,
             userOldStake.startTime,
             userOldStake.lockupEndTime
         );
-        return _lastId;
+        return newTokenId;
     }
 
     /**
@@ -315,14 +316,13 @@ contract Staking is
      * @dev The `tokenId` must be owned by `msg.sender` and the stake must be unlocked
      * @param tokenId - The id of the stake to unstake
      */
-    function unstake(uint256 tokenId) external nonReentrant {
+    function unstake(uint256 tokenId) external whenNotPaused nonReentrant {
         StakeInfo storage userStake = stakeInfo[tokenId];
         if (block.timestamp < userStake.lockupEndTime) revert TooEarlyForUnstake();
         if (!_tokenIds[msg.sender].contains(tokenId)) revert NotStakeOwner(tokenId);
 
         userStake.withdrawAllowedTime = uint64(block.timestamp + withdrawCooldown);
 
-        // @audit-ok events
         emit Unstake(msg.sender, tokenId, userStake.amount);
     }
 
@@ -389,11 +389,11 @@ contract Staking is
         emit UpdateWithdrawCooldown(_newWithdrawCooldown);
     }
 
-    function pause() external onlyRole(CONTRACT_MANAGER_ROLE) {
+    function pause() external onlyRole(PAUSER_ROLE) {
         _pause();
     }
 
-    function unpause() external onlyRole(CONTRACT_MANAGER_ROLE) {
+    function unpause() external onlyRole(UNPAUSER_ROLE) {
         if (unlockedAll) revert Unlocked();
         _unpause();
     }
@@ -402,8 +402,7 @@ contract Staking is
      * @notice Unlocks all stakes and terminates staking functionality
      * @dev Only for emergency purposes
      */
-    function emergencyUnlock() external onlyRole(EMERGENCY_MANAGER_ROLE) {
-        _pause();
+    function emergencyUnlock() external whenPaused onlyRole(EMERGENCY_MANAGER_ROLE) {
         unlockedAll = true;
         emit EmergencyUnlock();
     }
