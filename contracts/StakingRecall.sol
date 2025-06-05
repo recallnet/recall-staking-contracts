@@ -31,6 +31,8 @@ error NotAllowedDuration(uint256 duration);
 error TooEarlyForUnstake();
 error TooEarlyForRelock();
 error NotUnstakedYet();
+error AlreadyUnstaked();
+error NonPartialUnstake();
 error NotStakeOwner(uint256 id);
 error MaxWithdrawCooldown();
 error Unlocked();
@@ -202,6 +204,7 @@ contract Staking is
         if (!_tokenIds[msg.sender].contains(tokenId)) revert NotStakeOwner(tokenId);
 
         StakeInfo storage userOldStake = stakeInfo[tokenId];
+        if (userOldStake.withdrawAllowedTime != 0) revert AlreadyUnstaked();
         if (block.timestamp < userOldStake.lockupEndTime) revert TooEarlyForRelock();
 
         // update existing stakeInfo
@@ -232,7 +235,8 @@ contract Staking is
 
     /**
      * @notice Relocks the entire stake for a new duration
-     * @dev The `tokenId` must be owned by `msg.sender` and the stake must be unlocked
+     * @dev The `tokenId` must be owned by `msg.sender` 
+     *      and the stake must be unlocked (passed lockupTime) and must not be unstaked
      * @param tokenId - The id of the stake to relock
      * @param newLockDuration - The new duration of the stake
      */
@@ -244,6 +248,7 @@ contract Staking is
         if (!_tokenIds[msg.sender].remove(tokenId)) revert NotStakeOwner(tokenId);
 
         StakeInfo memory userOldStake = stakeInfo[tokenId];
+        if (userOldStake.withdrawAllowedTime != 0) revert AlreadyUnstaked();
         if (block.timestamp < userOldStake.lockupEndTime) revert TooEarlyForRelock();
         delete stakeInfo[tokenId];
 
@@ -273,15 +278,19 @@ contract Staking is
     }
 
     /**
-     * @notice Partial unstake of the stake
-      each partial unstake must create a new token id. 
+     * @notice Partial unstake of the stake. Unstakes the amountToUnstake for the further withdrawal.
+     * Creates a new stake for the remaining amount with previous conditions.
+     * @param tokenId - The id of the stake to unstake
+     * @param amountToUnstake - The amount to unstake.
+     * @return The id of the new stake 
      */
-    function unstake(  // @todo case for amountToUnstake == stake.amount
+    function unstake(
         uint256 tokenId,
         uint256 amountToUnstake
     ) public whenNotPaused nonReentrant returns (uint256) {
         StakeInfo storage userOldStake = stakeInfo[tokenId];
         if (block.timestamp < userOldStake.lockupEndTime) revert TooEarlyForUnstake();
+        if (userOldStake.withdrawAllowedTime != 0) revert AlreadyUnstaked();
         if (!_tokenIds[msg.sender].contains(tokenId)) revert NotStakeOwner(tokenId);
 
         // @dev reverts in case amount exceeds stake amount
@@ -289,7 +298,8 @@ contract Staking is
         userOldStake.amount = amountToUnstake;
         userOldStake.withdrawAllowedTime = uint64(block.timestamp + withdrawCooldown);
 
-        // create new unlocked stakeInfo with remaining amount
+        if (newStakeAmount == 0) revert NonPartialUnstake();
+        // create new stakeInfo with remaining amount and same startTime, lockupEndTime
         uint256 newTokenId = ++lastId;
         _tokenIds[msg.sender].add(newTokenId);
         stakeInfo[newTokenId] = StakeInfo(
@@ -313,12 +323,13 @@ contract Staking is
 
     /**
      * @notice Unstakes the entire stake by setting the `withdrawAllowedTime`
-     * @dev The `tokenId` must be owned by `msg.sender` and the stake must be unlocked
+     * @dev The `tokenId` must be owned by `msg.sender` and the stake must be unlocked (passed lockupEndTime)
      * @param tokenId - The id of the stake to unstake
      */
     function unstake(uint256 tokenId) external whenNotPaused nonReentrant {
         StakeInfo storage userStake = stakeInfo[tokenId];
         if (block.timestamp < userStake.lockupEndTime) revert TooEarlyForUnstake();
+        if (userStake.withdrawAllowedTime != 0) revert AlreadyUnstaked();
         if (!_tokenIds[msg.sender].contains(tokenId)) revert NotStakeOwner(tokenId);
 
         userStake.withdrawAllowedTime = uint64(block.timestamp + withdrawCooldown);
@@ -326,6 +337,11 @@ contract Staking is
         emit Unstake(msg.sender, tokenId, userStake.amount);
     }
 
+    /**
+     * @notice Withdraws the stake amount after the cooldown period
+     * @dev The `tokenId` must be owned by `msg.sender` and the stake must be unstaked
+     * @param tokenId - The id of the stake (NFT) to withdraw
+     */
     function withdraw(uint256 tokenId) public nonReentrant {
         StakeInfo memory userStake = stakeInfo[tokenId];
 
