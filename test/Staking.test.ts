@@ -641,6 +641,351 @@ describe("Unit-tests for the Staking contract", () => {
             });
         });
     });
+
+    describe("{withdraw} function", () => {
+        // @todo
+    });
+
+    describe("{setAllowedDuration} function", () => {
+        
+        it("Sets new allowed duration", async () => {
+            const env = await loadFixture(prepareEnvWithGrantedRoles);
+            const duration = 85 * DAY_SEC;
+            const allowed = true;
+
+            const tx = env.stakingContract
+                .connect(env.managerAdmin)
+                .setAllowedDuration(duration, allowed);
+
+            await expect(tx)
+                .emit(env.stakingContract, "UpdateAllowedDuration")
+                .withArgs(duration, allowed);
+            (await tx).wait();
+
+            expect(
+                await env.stakingContract.allowedDurations(duration),
+            ).to.equal(allowed);
+        });
+
+        it("Disables existing allowed duration", async () => {
+            const env = await loadFixture(prepareEnvWithGrantedRoles);
+            const duration = 60 * DAY_SEC;
+
+            expect(
+                await env.stakingContract.allowedDurations(duration),
+            ).to.equal(true);
+
+            const allowed = false;
+
+            const tx = env.stakingContract
+                .connect(env.managerAdmin)
+                .setAllowedDuration(duration, allowed);
+
+            await expect(tx)
+                .emit(env.stakingContract, "UpdateAllowedDuration")
+                .withArgs(duration, allowed);
+            (await tx).wait();
+
+            expect(
+                await env.stakingContract.allowedDurations(duration),
+            ).to.equal(allowed);
+        });
+
+        describe("Reverts", () => {
+            it("In case of non-admin", async () => {
+                const env = await loadFixture(prepareEnvWithGrantedRoles);
+                const duration = 60 * DAY_SEC;
+                const allowed = false;
+                const managerRole = await env.stakingContract.CONTRACT_MANAGER_ROLE();
+
+                await expect(
+                    env.stakingContract
+                        .connect(env.alice)
+                        .setAllowedDuration(duration, allowed),
+                ).revertedWithCustomError(
+                    env.stakingContract,
+                    "AccessControlUnauthorizedAccount",
+                ).withArgs(env.alice, managerRole);
+            });
+        });
+    });
+
+    describe("{setMinStakeAmount} function", () => {
+        it("Sets new min stake amount", async () => {
+            const env = await loadFixture(prepareEnvWithGrantedRoles);
+            const newMinStakeAmount = WeiPerEther * 100n;
+
+            const tx = env.stakingContract
+                .connect(env.managerAdmin)
+                .setMinStakeAmount(newMinStakeAmount);
+
+            await expect(tx)
+                .emit(env.stakingContract, "UpdateMinStakeAmount")
+                .withArgs(newMinStakeAmount);
+            (await tx).wait();
+
+            expect(await env.stakingContract.minStakeAmount()).to.equal(
+                newMinStakeAmount,
+            );
+
+            await env.token
+                .connect(env.alice)
+                .approve(env.stakingContract, env.aliceBalance);
+
+            await expect(
+                env.stakingContract
+                    .connect(env.alice)
+                    .stake(newMinStakeAmount - 1n, 30 * DAY_SEC),
+            ).revertedWithCustomError(
+                env.stakingContract,
+                "NotAllowedAmount",
+            );
+
+        });
+
+        describe("Reverts", () => {
+            it("In case of non-admin", async () => {
+                const env = await loadFixture(prepareEnvWithGrantedRoles);
+                const newMinStakeAmount = WeiPerEther * 100n;
+                const managerRole = await env.stakingContract.CONTRACT_MANAGER_ROLE();
+
+                await expect(
+                    env.stakingContract
+                        .connect(env.alice)
+                        .setMinStakeAmount(newMinStakeAmount),
+                ).revertedWithCustomError(
+                    env.stakingContract,
+                    "AccessControlUnauthorizedAccount",
+                ).withArgs(env.alice, managerRole);
+            });
+        });
+    });
+
+    describe("{setWithdrawCooldown} function", () => {
+        it("Sets new withdraw cooldown period", async () => {
+            const env = await loadFixture(prepareEnvWithGrantedRoles);
+            const newWithdrawCooldown = 65 * DAY_SEC;
+
+            const tx = env.stakingContract
+                .connect(env.managerAdmin)
+                .setWithdrawCooldown(newWithdrawCooldown);
+
+            await expect(tx)
+                .emit(env.stakingContract, "UpdateWithdrawCooldown")
+                .withArgs(newWithdrawCooldown);
+            (await tx).wait();
+
+            expect(await env.stakingContract.withdrawCooldown()).to.equal(
+                newWithdrawCooldown,
+            );
+
+
+            await env.token
+                .connect(env.alice)
+                .approve(env.stakingContract, env.aliceBalance);
+
+            const currentTime = await time.latest();
+            const stakeStartTime = currentTime + 10;
+            const stakeDuration = 30 * DAY_SEC;
+            await time.setNextBlockTimestamp(stakeStartTime);
+            await env.stakingContract
+                .connect(env.alice)
+                .stake(env.aliceBalance, stakeDuration);
+            
+            const tokenId = 1;
+            await time.setNextBlockTimestamp(stakeStartTime + stakeDuration);
+            await env.stakingContract
+                .connect(env.alice)["unstake(uint256)"](tokenId);
+
+            const stakeInfo = await env.stakingContract.stakeInfo(tokenId);
+            expect(stakeInfo.withdrawAllowedTime).to.equal(stakeStartTime + stakeDuration + newWithdrawCooldown);
+
+        });
+
+        describe("Reverts", () => {
+            it("In case of non-admin", async () => {
+                const env = await loadFixture(prepareEnvWithGrantedRoles);
+                const newWithdrawCooldown = 65 * DAY_SEC;
+                const managerRole = await env.stakingContract.CONTRACT_MANAGER_ROLE();
+
+                await expect(
+                    env.stakingContract
+                        .connect(env.alice)
+                        .setWithdrawCooldown(newWithdrawCooldown),
+                ).revertedWithCustomError(
+                    env.stakingContract,
+                    "AccessControlUnauthorizedAccount",
+                ).withArgs(env.alice, managerRole);
+            });
+
+            it("In case of too high withdraw cooldown", async () => {
+                const env = await loadFixture(prepareEnvWithGrantedRoles);
+                const maxWithdrawCooldown = await env.stakingContract.MAX_WITHDRAW_COOLDOWN();
+                const newWithdrawCooldown = maxWithdrawCooldown + 1n;
+
+                await expect(
+                    env.stakingContract
+                        .connect(env.managerAdmin)
+                        .setWithdrawCooldown(newWithdrawCooldown),
+                ).revertedWithCustomError(
+                    env.stakingContract,
+                    "MaxWithdrawCooldown",
+                ).withArgs();
+            });
+        });
+    });
+
+    describe("{emergencyUnlock} function", () => {
+        it("Unlocks all stakes and terminates staking functionality", async () => {
+            const env = await loadFixture(prepareEnvWithStakes);
+            expect(await env.stakingContract.unlockedAll()).to.equal(false);
+
+            await env.stakingContract.connect(env.pauserAdmin).pause();
+            const unlockTx = env.stakingContract.connect(env.emergencyAdmin).emergencyUnlock();
+            await expect(unlockTx).to.emit(env.stakingContract, "EmergencyUnlock");
+            (await unlockTx).wait();
+
+            expect(await env.stakingContract.unlockedAll()).to.equal(true);
+
+            
+            // alice can withdraw
+            let tokenId = 1;
+            let tx = env.stakingContract
+                .connect(env.alice)
+                .withdraw(tokenId);
+            
+            await expect(tx)
+                .to.changeTokenBalances(
+                    env.token,
+                    [env.alice, env.stakingContract],
+                    [env.aliceBalance, -env.aliceBalance],
+                );
+
+            await expect(tx)
+                .emit(env.stakingContract, "Withdraw")
+                .withArgs(env.alice, tokenId, env.aliceBalance);
+            (await tx).wait();
+
+            // bob can withdraw
+            tokenId = 2;
+            await env.stakingContract.connect(env.bob).withdraw(tokenId);
+            tokenId = 3;
+            await env.stakingContract.connect(env.bob).withdraw(tokenId);
+
+            // carol can withdraw
+            tokenId = 4;
+            await env.stakingContract.connect(env.carol).withdraw(tokenId);
+            tokenId = 5;
+            await env.stakingContract.connect(env.carol).withdraw(tokenId);
+            tokenId = 6;
+            await env.stakingContract.connect(env.carol).withdraw(tokenId);
+
+            expect(await env.stakingContract.totalStaked()).to.equal(0);
+            expect(await env.stakingContract.totalUserStaked(env.alice)).to.equal(0);
+            expect(await env.stakingContract.totalUserStaked(env.bob)).to.equal(0);
+            expect(await env.stakingContract.totalUserStaked(env.carol)).to.equal(0);
+
+            expect(await env.token.balanceOf(env.stakingContract)).to.equal(0);
+            expect(await env.token.balanceOf(env.alice)).to.equal(env.aliceBalance);
+            expect(await env.token.balanceOf(env.bob)).to.equal(env.bobBalance);
+            expect(await env.token.balanceOf(env.carol)).to.equal(env.carolBalance);
+
+        });
+
+        describe("Reverts", () => {
+            it("In case of non-emergency admin", async () => {
+                const env = await loadFixture(prepareEnvWithGrantedRoles);
+                const emergencyRole = await env.stakingContract.EMERGENCY_MANAGER_ROLE();
+
+                await env.stakingContract.connect(env.pauserAdmin).pause();
+                await expect(
+                    env.stakingContract
+                        .connect(env.alice)
+                        .emergencyUnlock(),
+                ).revertedWithCustomError(
+                    env.stakingContract,
+                    "AccessControlUnauthorizedAccount",
+                ).withArgs(env.alice, emergencyRole);
+            });
+
+            it("In case of non-paused contract", async () => {
+                const env = await loadFixture(prepareEnvWithGrantedRoles);
+
+                await expect(
+                    env.stakingContract
+                        .connect(env.emergencyAdmin)
+                        .emergencyUnlock(),
+                ).revertedWithCustomError(
+                    env.stakingContract,
+                    "ExpectedPause",
+                ).withArgs();
+            });
+        });
+    });
+
+    describe("{pause} function", () => {
+        it("Pauses staking contract", async () => {
+            const env = await loadFixture(prepareEnvWithStakes);
+            expect(await env.stakingContract.paused()).to.equal(false);
+
+            await env.stakingContract.connect(env.pauserAdmin).pause();
+            expect(await env.stakingContract.paused()).to.equal(true);
+        });
+
+        describe("Reverts", () => {
+            it("In case of non-pauser", async () => {
+                const env = await loadFixture(prepareEnvWithStakes);
+                await expect(
+                    env.stakingContract
+                        .connect(env.alice)
+                        .pause(),
+                ).revertedWithCustomError(
+                    env.stakingContract,
+                    "AccessControlUnauthorizedAccount",
+                ).withArgs(env.alice, await env.stakingContract.PAUSER_ROLE());
+            });
+        });
+    });
+
+    describe("{unpause} function", () => {
+        it("Unpauses staking contract", async () => {
+            const env = await loadFixture(prepareEnvWithStakes);
+            expect(await env.stakingContract.paused()).to.equal(false);
+
+            await env.stakingContract.connect(env.pauserAdmin).pause();
+            await env.stakingContract.connect(env.unpauserAdmin).unpause();
+            expect(await env.stakingContract.paused()).to.equal(false);
+        });
+
+        describe("Reverts", () => {
+            it("In case of non-pauser", async () => {
+                const env = await loadFixture(prepareEnvWithGrantedRoles);
+                await expect(
+                    env.stakingContract
+                        .connect(env.alice)
+                        .unpause(),
+                ).revertedWithCustomError(
+                    env.stakingContract,
+                    "AccessControlUnauthorizedAccount",
+                ).withArgs(env.alice, await env.stakingContract.UNPAUSER_ROLE());
+            });
+
+            it("In case of contract unlocked", async () => {
+                const env = await loadFixture(prepareEnvWithGrantedRoles);
+                await env.stakingContract.connect(env.pauserAdmin).pause();
+                await env.stakingContract.connect(env.emergencyAdmin).emergencyUnlock();
+
+                await expect(
+                    env.stakingContract
+                        .connect(env.unpauserAdmin)
+                        .unpause(),
+                ).revertedWithCustomError(
+                    env.stakingContract,
+                    "Unlocked",
+                ).withArgs();
+            });
+        });
+    });
 });
 
 async function prepareEnvWithStakes() {
