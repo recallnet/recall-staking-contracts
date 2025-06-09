@@ -36,56 +36,74 @@ contract Staking is
     using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.UintSet;
 
-    /// @notice Token to stake
+    /* GLOBAL VARIABLES */
+
+    /// @inheritdoc IStaking
+    bytes32 public constant override CONTRACT_MANAGER_ROLE = keccak256("CONTRACT_MANAGER_ROLE");
+
+    /// @inheritdoc IStaking
+    bytes32 public constant override EMERGENCY_MANAGER_ROLE = keccak256("EMERGENCY_MANAGER_ROLE");
+
+    /// @inheritdoc IStaking
+    bytes32 public constant override PAUSER_ROLE = keccak256("PAUSER_ROLE");
+
+    /// @inheritdoc IStaking
+    bytes32 public constant override UNPAUSER_ROLE = keccak256("UNPAUSER_ROLE");
+
+    /// @inheritdoc IStaking
+    uint256 public constant override MAX_WITHDRAW_COOLDOWN = 180 days;
+
+    /// @inheritdoc IStaking
     IERC20 public override stakeToken;
 
-    /// @notice NFT receipt contract (represents receipt of each stake)
+    /// @inheritdoc IStaking
     INftReceipt public override nftReceipt;
 
-    /// @notice Last stake id
-    uint256 public lastId;
+    /// @inheritdoc IStaking
+    uint256 public override lastId;
 
-    /// @notice Total staked amount
-    uint256 public totalStaked;
+    /// @inheritdoc IStaking
+    uint256 public override totalStaked;
 
-    /// @notice Minimum stake amount
-    uint256 public minStakeAmount;
+    /// @inheritdoc IStaking
+    uint256 public override minStakeAmount;
 
-    /// @notice Cooldown period for withdrawing stake
-    uint256 public withdrawCooldown;
+    /// @inheritdoc IStaking
+    uint256 public override withdrawCooldown;
 
+    /// @inheritdoc IStaking
     bool public unlockedAll;
 
-    uint256 public constant MAX_WITHDRAW_COOLDOWN = 180 days;
+    /// @inheritdoc IStaking
+    mapping(address account => uint256 stakedAmount) public override totalUserStaked;
 
-    bytes32 public constant CONTRACT_MANAGER_ROLE = keccak256("CONTRACT_MANAGER_ROLE");
+    /// @inheritdoc IStaking
+    mapping(uint256 duration => bool isAllowed) public override allowedDurations;
 
-    bytes32 public constant EMERGENCY_MANAGER_ROLE = keccak256("EMERGENCY_MANAGER_ROLE");
+    mapping(uint256 tokenId => StakeInfo stake) public  stakeInfo;
 
-    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
-
-    bytes32 public constant UNPAUSER_ROLE = keccak256("UNPAUSER_ROLE");
-
-    /// @notice Mapping of allowed durations
-    mapping(uint256 duration => bool isAllowed) public allowedDurations;
-
-    /// @notice Total amount of all user's stakes
-    mapping(address account => uint256) public totalUserStaked;
-
-    mapping(uint256 tokenId => StakeInfo stake) public stakeInfo;
-
+    /// @dev Mapping of stake owners to the set of their stakes
     mapping(address => EnumerableSet.UintSet) private _tokenIds;
 
-    /// @custom:oz-upgrades-unsafe-allow constructor
+    /* CONSTRUCTOR */
+
+    /**
+     * @dev Constructor for the upgradeable contract.
+     * It disables initializers to prevent re-initialization through the implementation contract.
+     * The actual initialization is done via the `initialize` function.
+     */
     constructor() {
         _disableInitializers();
     }
 
+    /* INITIALIZER */
+
+    /// @inheritdoc IStaking
     function initialize(
         address _stakeToken,
         address _nftReceipt,
         address _defaultAdmin
-    ) public initializer {
+    ) external override initializer {
         if (_stakeToken == address(0) || _nftReceipt == address(0) || _defaultAdmin == address(0))
             revert ZeroAddress();
 
@@ -105,13 +123,9 @@ contract Staking is
         withdrawCooldown = 30 days;
     }
 
-    /**
-     * @notice Deposits tokens into contract and creates new stake for `msg.sender`
-     * @dev The `amount` must be approved before deposit
-     * @param amount - The amount to stake
-     * @param duration - The duration of the stake in seconds
-     * @return The id of the stake
-     */
+    /* EXTERNAL USER FUNCTIONS */
+
+    /// @inheritdoc IStaking
     function stake(
         uint256 amount,
         uint256 duration
@@ -140,26 +154,15 @@ contract Staking is
         return newTokenId;
     }
 
-    /**
-     * @notice Partial relock of the stake:
-     * decreases the amount of the existing stake 
-     * and creates a new one with new lock amount and duration
-     * @dev The previous stake will be decreased and created new one 
-
-
-    the previous stake here that exists right now will be decreased 
-    and in parallel we create a new one with new lock amount. 
-
-    in partial relock, make new stakeInfo for the locked share: with startTime set to when relock is called.
-    The existing stakeInfo holds the remaining unlocked-but-still-staked amount
-    */
+    /// @inheritdoc IStaking
     function relock(
         uint256 tokenId,
         uint256 newLockDuration,
         uint256 newLockAmount
     ) external whenNotPaused nonReentrant returns (uint256) {
         if (!allowedDurations[newLockDuration]) revert NotAllowedDuration(newLockDuration);
-        if (newLockAmount == 0 || newLockAmount < minStakeAmount) revert NotAllowedAmount(newLockAmount);
+        if (newLockAmount == 0 || newLockAmount < minStakeAmount)
+            revert NotAllowedAmount(newLockAmount);
         if (!_tokenIds[msg.sender].contains(tokenId)) revert NotStakeOwner(tokenId);
 
         StakeInfo storage userOldStake = stakeInfo[tokenId];
@@ -192,14 +195,7 @@ contract Staking is
         return newTokenId;
     }
 
-    /**
-     * @notice Relocks the entire stake for a new duration
-     * @dev The `tokenId` must be owned by `msg.sender`
-     *      and the stake must be unlocked (passed lockupTime) and must not be unstaked
-     * @param tokenId - The id of the stake to relock
-     * @param newLockDuration - The new duration of the stake
-     * @return The id of the new stake
-     */
+    /// @inheritdoc IStaking
     function relock(
         uint256 tokenId,
         uint256 newLockDuration
@@ -237,13 +233,7 @@ contract Staking is
         return newTokenId;
     }
 
-    /**
-     * @notice Partial unstake of the stake. Unstakes the amountToUnstake for the further withdrawal.
-     * Creates a new stake for the remaining amount with previous conditions.
-     * @param tokenId - The id of the stake to unstake
-     * @param amountToUnstake - The amount to unstake.
-     * @return The id of the new stake
-     */
+    /// @inheritdoc IStaking
     function unstake(
         uint256 tokenId,
         uint256 amountToUnstake
@@ -281,11 +271,7 @@ contract Staking is
         return newTokenId;
     }
 
-    /**
-     * @notice Unstakes the entire stake by setting the `withdrawAllowedTime`
-     * @dev The `tokenId` must be owned by `msg.sender` and the stake must be unlocked (passed lockupEndTime)
-     * @param tokenId - The id of the stake to unstake
-     */
+    /// @inheritdoc IStaking
     function unstake(uint256 tokenId) external whenNotPaused nonReentrant {
         StakeInfo storage userStake = stakeInfo[tokenId];
         if (block.timestamp < userStake.lockupEndTime) revert TooEarlyForUnstake();
@@ -297,11 +283,7 @@ contract Staking is
         emit Unstake(msg.sender, tokenId, userStake.amount);
     }
 
-    /**
-     * @notice Withdraws the stake amount after the cooldown period
-     * @dev The `tokenId` must be owned by `msg.sender` and the stake must be unstaked
-     * @param tokenId - The id of the stake (NFT) to withdraw
-     */
+    /// @inheritdoc IStaking
     function withdraw(uint256 tokenId) public nonReentrant {
         StakeInfo memory userStake = stakeInfo[tokenId];
 
@@ -321,10 +303,7 @@ contract Staking is
         emit Withdraw(msg.sender, tokenId, userStake.amount);
     }
 
-    /**
-     * @notice Returns array of all users stakes
-     * @param user The account address of staker
-     */
+    /// @inheritdoc IStaking
     function getUserStakes(address user) external view returns (StakeInfoWithId[] memory) {
         uint256[] memory tokenIds = _tokenIds[user].values();
 
@@ -341,6 +320,9 @@ contract Staking is
         return _stakes;
     }
 
+    /* ADMIN FUNCTIONS */
+
+    /// @inheritdoc IStaking
     function setAllowedDuration(
         uint256 _duration,
         bool _allowed
@@ -349,6 +331,7 @@ contract Staking is
         emit UpdateAllowedDuration(_duration, _allowed);
     }
 
+    /// @inheritdoc IStaking
     function setMinStakeAmount(
         uint256 _newMinStakeAmount
     ) external onlyRole(CONTRACT_MANAGER_ROLE) {
@@ -356,6 +339,7 @@ contract Staking is
         emit UpdateMinStakeAmount(_newMinStakeAmount);
     }
 
+    /// @inheritdoc IStaking
     function setWithdrawCooldown(
         uint256 _newWithdrawCooldown
     ) external onlyRole(CONTRACT_MANAGER_ROLE) {
@@ -365,19 +349,18 @@ contract Staking is
         emit UpdateWithdrawCooldown(_newWithdrawCooldown);
     }
 
+    /// @inheritdoc IStaking
     function pause() external onlyRole(PAUSER_ROLE) {
         _pause();
     }
 
+    /// @inheritdoc IStaking
     function unpause() external onlyRole(UNPAUSER_ROLE) {
         if (unlockedAll) revert Unlocked();
         _unpause();
     }
 
-    /**
-     * @notice Unlocks all stakes and terminates staking functionality
-     * @dev Only for emergency purposes
-     */
+    /// @inheritdoc IStaking
     function emergencyUnlock() external whenPaused onlyRole(EMERGENCY_MANAGER_ROLE) {
         unlockedAll = true;
         emit EmergencyUnlock();
