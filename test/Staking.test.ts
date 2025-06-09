@@ -336,15 +336,17 @@ describe("Unit-tests for the Staking contract", () => {
         });
     });
 
-    // @todo
     describe("{relock} 'partial' function", () => {
-        it("Relock for allowed duration of 30 days", async () => {
+        it("Relocks after lockup period", async () => {
             const env = await loadFixture(prepareEnvWithStakes);
-            await time.increaseTo(env.aliceStake0.lockupEndTime);
+            const stakeInfo = await env.stakingContract.stakeInfo(1);
+            const nextTime = env.aliceStake0.lockupEndTime + 1000;
+            await time.setNextBlockTimestamp(nextTime);
 
             const tokenId = 1;
             const newAliceDuration = 60 * DAY_SEC;
-            const newAliceAmount = env.aliceBalance / 2n;
+            const newAliceAmount = env.aliceBalance - 1000n;
+            const remainingAmount = env.aliceBalance - newAliceAmount;
             const lastId = await env.stakingContract.lastId();
             const newTokenId = lastId + 1n;
 
@@ -362,16 +364,23 @@ describe("Unit-tests for the Staking contract", () => {
 
             await expect(tx)
                 .emit(env.stakingContract, "Relock")
-                .withArgs(env.alice.address, tokenId, newAliceAmount);
-            await expect(tx).emit(env.stakingContract, "Stake");
-            // .withArgs(env.alice.address, newTokenId, newAliceAmount);
+                .withArgs(env.alice.address, tokenId, remainingAmount);
+            await expect(tx)
+                .emit(env.stakingContract, "Stake")
+                .withArgs(
+                    env.alice.address,
+                    newTokenId,
+                    newAliceAmount,
+                    nextTime,
+                    nextTime + newAliceDuration,
+                );
 
             (await tx).wait();
 
             expect(await env.stakingContract.lastId()).to.equal(newTokenId);
 
             const stakeInfo0 = await env.stakingContract.stakeInfo(tokenId);
-            expect(stakeInfo0.amount).to.equal(env.aliceBalance / 2n);
+            expect(stakeInfo0.amount).to.equal(remainingAmount);
             expect(stakeInfo0.startTime).to.equal(env.aliceStake0.startTime);
             expect(stakeInfo0.lockupEndTime).to.equal(
                 env.aliceStake0.lockupEndTime,
@@ -379,9 +388,11 @@ describe("Unit-tests for the Staking contract", () => {
             expect(stakeInfo0.withdrawAllowedTime).to.equal(0);
 
             const stakeInfo1 = await env.stakingContract.stakeInfo(newTokenId);
-            expect(stakeInfo1.amount).to.equal(env.aliceBalance / 2n);
-            // expect(stakeInfo1.startTime).to.equal(env.aliceStake0.startTime);
-            // expect(stakeInfo1.lockupEndTime).to.equal(env.aliceStake0.lockupEndTime);
+            expect(stakeInfo1.amount).to.equal(newAliceAmount);
+            expect(stakeInfo1.startTime).to.equal(nextTime);
+            expect(stakeInfo1.lockupEndTime).to.equal(
+                nextTime + newAliceDuration,
+            );
             expect(stakeInfo1.withdrawAllowedTime).to.equal(0);
 
             expect(
@@ -399,7 +410,338 @@ describe("Unit-tests for the Staking contract", () => {
             );
         });
 
-        describe("Reverts", () => {});
+        describe("Reverts", () => {
+            it("In case non-allowed duration", async () => {
+                const env = await loadFixture(prepareEnvWithStakes);
+                const tokenId = 1;
+                const newLockDuration = 3 * DAY_SEC;
+                const newLockAmount = env.aliceBalance / 2n;
+
+                await expect(
+                    env.stakingContract
+                        .connect(env.alice)
+                        [
+                            "relock(uint256,uint256,uint256)"
+                        ](tokenId, newLockDuration, newLockAmount),
+                )
+                    .revertedWithCustomError(
+                        env.stakingContract,
+                        "NotAllowedDuration",
+                    )
+                    .withArgs(newLockDuration);
+            });
+
+            it("In case non-allowed amount", async () => {
+                const env = await loadFixture(prepareEnvWithStakes);
+                await time.setNextBlockTimestamp(env.aliceStake0.lockupEndTime);
+
+                const newMinStakeAmount = WeiPerEther * 100n;
+                await env.stakingContract
+                    .connect(env.managerAdmin)
+                    .setMinStakeAmount(newMinStakeAmount);
+
+                const tokenId = 1;
+                const newLockDuration = 30 * DAY_SEC;
+                const newLockAmount = newMinStakeAmount - 1n;
+
+                await expect(
+                    env.stakingContract
+                        .connect(env.alice)
+                        [
+                            "relock(uint256,uint256,uint256)"
+                        ](tokenId, newLockDuration, newLockAmount),
+                )
+                    .revertedWithCustomError(
+                        env.stakingContract,
+                        "NotAllowedAmount",
+                    )
+                    .withArgs(newLockAmount);
+
+                await expect(
+                    env.stakingContract
+                        .connect(env.alice)
+                        [
+                            "relock(uint256,uint256,uint256)"
+                        ](tokenId, newLockDuration, 0),
+                )
+                    .revertedWithCustomError(
+                        env.stakingContract,
+                        "NotAllowedAmount",
+                    )
+                    .withArgs(0);
+            });
+
+            it("In case of not stake owner", async () => {
+                const env = await loadFixture(prepareEnvWithStakes);
+                await time.setNextBlockTimestamp(env.aliceStake0.lockupEndTime);
+
+                const tokenId = 1;
+                const newLockDuration = 30 * DAY_SEC;
+                const newLockAmount = env.aliceBalance / 2n;
+
+                await expect(
+                    env.stakingContract
+                        .connect(env.bob)
+                        [
+                            "relock(uint256,uint256,uint256)"
+                        ](tokenId, newLockDuration, newLockAmount),
+                )
+                    .revertedWithCustomError(
+                        env.stakingContract,
+                        "NotStakeOwner",
+                    )
+                    .withArgs(tokenId);
+            });
+
+            it("In case of too early for relock", async () => {
+                const env = await loadFixture(prepareEnvWithStakes);
+                await time.setNextBlockTimestamp(
+                    env.aliceStake0.lockupEndTime - 1000,
+                );
+
+                const tokenId = 1;
+                const newLockDuration = 90 * DAY_SEC;
+                const newLockAmount = env.aliceBalance / 2n;
+
+                await expect(
+                    env.stakingContract
+                        .connect(env.alice)
+                        [
+                            "relock(uint256,uint256,uint256)"
+                        ](tokenId, newLockDuration, newLockAmount),
+                )
+                    .revertedWithCustomError(
+                        env.stakingContract,
+                        "TooEarlyForRelock",
+                    )
+                    .withArgs();
+            });
+
+            it("In case of already unstaked", async () => {
+                const env = await loadFixture(prepareEnvWithStakes);
+                await time.setNextBlockTimestamp(env.aliceStake0.lockupEndTime);
+
+                const tokenId = 1;
+                const newLockDuration = 30 * DAY_SEC;
+                const newLockAmount = env.aliceBalance / 2n;
+
+                await env.stakingContract
+                    .connect(env.alice)
+                    ["unstake(uint256)"](tokenId);
+
+                await expect(
+                    env.stakingContract
+                        .connect(env.alice)
+                        [
+                            "relock(uint256,uint256,uint256)"
+                        ](tokenId, newLockDuration, newLockAmount),
+                )
+                    .revertedWithCustomError(
+                        env.stakingContract,
+                        "AlreadyUnstaked",
+                    )
+                    .withArgs();
+            });
+
+            it("In case paused contract", async () => {
+                const env = await loadFixture(prepareEnvWithStakes);
+                await time.setNextBlockTimestamp(env.aliceStake0.lockupEndTime);
+
+                await env.stakingContract.connect(env.pauserAdmin).pause();
+
+                const tokenId = 1;
+                const newLockDuration = 30 * DAY_SEC;
+                const newLockAmount = env.aliceBalance / 2n;
+
+                await expect(
+                    env.stakingContract
+                        .connect(env.alice)
+                        [
+                            "relock(uint256,uint256,uint256)"
+                        ](tokenId, newLockDuration, newLockAmount),
+                ).revertedWithCustomError(env.stakingContract, "EnforcedPause");
+            });
+        });
+    });
+
+    describe("{relock} 'full' function", () => {
+        it("Relocks for allowed duration of 30 days", async () => {
+            const env = await loadFixture(prepareEnvWithStakes);
+            const newTokenId = (await env.stakingContract.lastId()) + 1n;
+
+            const stakeInfo = await env.stakingContract.stakeInfo(1);
+            const nextTime = env.aliceStake0.lockupEndTime + 1000;
+            await time.setNextBlockTimestamp(nextTime);
+
+            const tokenId = 1;
+            const newLockDuration = 90 * DAY_SEC;
+
+            const tx = env.stakingContract
+                .connect(env.alice)
+                ["relock(uint256,uint256)"](tokenId, newLockDuration);
+
+            await expect(tx).to.changeTokenBalances(
+                env.token,
+                [env.alice, env.stakingContract],
+                [0, 0],
+            );
+
+            await expect(tx)
+                .emit(env.stakingContract, "Relock")
+                .withArgs(env.alice.address, tokenId, 0);
+
+            await expect(tx)
+                .emit(env.stakingContract, "Stake")
+                .withArgs(
+                    env.alice.address,
+                    newTokenId,
+                    stakeInfo.amount,
+                    nextTime,
+                    nextTime + newLockDuration,
+                );
+
+            (await tx).wait();
+
+            const stakeInfo0 = await env.stakingContract.stakeInfo(tokenId);
+            expect(stakeInfo0.amount).to.equal(0);
+            expect(stakeInfo0.startTime).to.equal(0);
+            expect(stakeInfo0.lockupEndTime).to.equal(0);
+            expect(stakeInfo0.withdrawAllowedTime).to.equal(0);
+
+            const stakeInfo1 = await env.stakingContract.stakeInfo(newTokenId);
+            expect(stakeInfo1.amount).to.equal(stakeInfo.amount);
+            expect(stakeInfo1.startTime).to.equal(nextTime);
+            expect(stakeInfo1.lockupEndTime).to.equal(
+                nextTime + newLockDuration,
+            );
+            expect(stakeInfo1.withdrawAllowedTime).to.equal(0);
+
+            expect(await env.stakingContract.totalUserStaked(env.alice));
+
+            // nftReceipt
+            await expect(env.nftReceipt.ownerOf(tokenId))
+                .to.be.revertedWithCustomError(
+                    env.nftReceipt,
+                    "ERC721NonexistentToken",
+                )
+                .withArgs(tokenId);
+            expect(await env.nftReceipt.ownerOf(newTokenId)).to.equal(
+                env.alice,
+            );
+        });
+
+        describe("Reverts", () => {
+            it("In case of non-allowed duration", async () => {
+                const env = await loadFixture(prepareEnvWithStakes);
+                const newLockDuration = 3 * DAY_SEC;
+
+                const stakeInfo = await env.stakingContract.stakeInfo(1);
+                const nextTime = env.aliceStake0.lockupEndTime + 1000;
+                await time.setNextBlockTimestamp(nextTime);
+
+                await expect(
+                    env.stakingContract
+                        .connect(env.alice)
+                        [
+                            "relock(uint256,uint256)"
+                        ](1, newLockDuration),
+                )
+                    .revertedWithCustomError(
+                        env.stakingContract,
+                        "NotAllowedDuration",
+                    )
+                    .withArgs(newLockDuration);
+            });
+
+            it("In case of non-stake owner", async () => {
+                const env = await loadFixture(prepareEnvWithStakes);
+                const newLockDuration = 30 * DAY_SEC;
+
+                const stakeInfo = await env.stakingContract.stakeInfo(1);
+                const nextTime = env.aliceStake0.lockupEndTime + 1000;
+                await time.setNextBlockTimestamp(nextTime);
+
+                await expect(
+                    env.stakingContract
+                        .connect(env.bob)
+                        [
+                            "relock(uint256,uint256)"
+                        ](1, newLockDuration),
+                )
+                    .revertedWithCustomError(
+                        env.stakingContract,
+                        "NotStakeOwner",
+                    )
+                    .withArgs(1);
+            });
+
+            it("in case already unstaked", async () => {
+                const env = await loadFixture(prepareEnvWithStakes);
+                const newLockDuration = 30 * DAY_SEC;
+
+                const stakeInfo = await env.stakingContract.stakeInfo(1);
+                const nextTime = env.aliceStake0.lockupEndTime + 1000;
+                await time.setNextBlockTimestamp(nextTime);
+
+                await env.stakingContract
+                    .connect(env.alice)
+                    ["unstake(uint256)"](1);
+
+                await expect(
+                    env.stakingContract
+                        .connect(env.alice)
+                        [
+                            "relock(uint256,uint256)"
+                        ](1, newLockDuration),
+                )
+                    .revertedWithCustomError(
+                        env.stakingContract,
+                        "AlreadyUnstaked",
+                    )
+                    .withArgs();
+            });
+
+            it("In case of too early for relock", async () => {
+                const env = await loadFixture(prepareEnvWithStakes);
+                const newLockDuration = 90 * DAY_SEC;
+
+                const stakeInfo = await env.stakingContract.stakeInfo(1);
+                const nextTime = env.aliceStake0.lockupEndTime - 1000;
+                await time.setNextBlockTimestamp(nextTime);
+
+                await expect(
+                    env.stakingContract
+                        .connect(env.alice)
+                        [
+                            "relock(uint256,uint256)"
+                        ](1, newLockDuration),
+                )
+                    .revertedWithCustomError(
+                        env.stakingContract,
+                        "TooEarlyForRelock",
+                    )
+                    .withArgs();
+            });
+
+            it("In case the contract is paused", async () => {
+                const env = await loadFixture(prepareEnvWithStakes);
+                const newLockDuration = 30 * DAY_SEC;
+
+                await env.stakingContract.connect(env.pauserAdmin).pause();
+
+                const stakeInfo = await env.stakingContract.stakeInfo(1);
+                const nextTime = env.aliceStake0.lockupEndTime + 1000;
+                await time.setNextBlockTimestamp(nextTime);
+
+                await expect(
+                    env.stakingContract
+                        .connect(env.alice)
+                        [
+                            "relock(uint256,uint256)"
+                        ](1, newLockDuration),
+                ).revertedWithCustomError(env.stakingContract, "EnforcedPause");
+            });
+        });
     });
 
     describe("{unstake} 'partial' function", () => {
@@ -531,9 +873,9 @@ describe("Unit-tests for the Staking contract", () => {
                 const tokenId = 1;
                 const amountToUnstake = env.aliceStake0.amount - 1n;
                 await env.stakingContract
-                        .connect(env.alice)
-                        ["unstake(uint256)"](tokenId);
-                
+                    .connect(env.alice)
+                    ["unstake(uint256)"](tokenId);
+
                 await expect(
                     env.stakingContract
                         .connect(env.alice)
@@ -586,9 +928,7 @@ describe("Unit-tests for the Staking contract", () => {
                     env.stakingContract
                         .connect(env.bob)
                         ["unstake(uint256,uint256)"](tokenId, amountToUnstake),
-                )
-                    .revertedWithCustomError(env.stakingContract, "EnforcedPause");
-
+                ).revertedWithCustomError(env.stakingContract, "EnforcedPause");
             });
         });
     });
@@ -598,10 +938,8 @@ describe("Unit-tests for the Staking contract", () => {
             const env = await loadFixture(prepareEnvWithStakes);
             const withdrawCooldown =
                 await env.stakingContract.withdrawCooldown();
-            
-            await time.setNextBlockTimestamp(
-                env.aliceStake0.lockupEndTime,
-            );
+
+            await time.setNextBlockTimestamp(env.aliceStake0.lockupEndTime);
 
             const tokenId = 1;
             const tx = env.stakingContract
@@ -619,11 +957,13 @@ describe("Unit-tests for the Staking contract", () => {
             expect(stakeInfo.lockupEndTime).to.equal(
                 env.aliceStake0.lockupEndTime,
             );
-            expect(stakeInfo.withdrawAllowedTime).to.equal(BigInt(env.aliceStake0.lockupEndTime) + withdrawCooldown);
-
-            expect(await env.stakingContract.totalUserStaked(env.alice)).to.equal(
-                env.aliceStake0.amount,
+            expect(stakeInfo.withdrawAllowedTime).to.equal(
+                BigInt(env.aliceStake0.lockupEndTime) + withdrawCooldown,
             );
+
+            expect(
+                await env.stakingContract.totalUserStaked(env.alice),
+            ).to.equal(env.aliceStake0.amount);
         });
 
         describe("Reverts", () => {
@@ -674,7 +1014,7 @@ describe("Unit-tests for the Staking contract", () => {
                     .withArgs(tokenId);
 
                 await time.increaseTo(env.bobStake1.lockupEndTime);
-                
+
                 // carol for bob's stake
                 const bobTokenId = 3;
                 await expect(
@@ -688,7 +1028,6 @@ describe("Unit-tests for the Staking contract", () => {
                     )
                     .withArgs(bobTokenId);
             });
-
 
             it("When already unstaked (can't unstake again)", async () => {
                 const env = await loadFixture(prepareEnvWithStakes);
@@ -705,12 +1044,12 @@ describe("Unit-tests for the Staking contract", () => {
                 await time.setNextBlockTimestamp(
                     BigInt(env.aliceStake0.lockupEndTime) + withdrawCooldown,
                 );
-                
+
                 // alice unstakes again
                 await expect(
                     env.stakingContract
                         .connect(env.alice)
-                        ["unstake(uint256)"](tokenId)
+                        ["unstake(uint256)"](tokenId),
                 ).revertedWithCustomError(
                     env.stakingContract,
                     "AlreadyUnstaked",
@@ -729,9 +1068,7 @@ describe("Unit-tests for the Staking contract", () => {
                     env.stakingContract
                         .connect(env.bob)
                         ["unstake(uint256)"](tokenId),
-                )
-                    .revertedWithCustomError(env.stakingContract, "EnforcedPause");
-
+                ).revertedWithCustomError(env.stakingContract, "EnforcedPause");
             });
         });
     });
@@ -743,9 +1080,7 @@ describe("Unit-tests for the Staking contract", () => {
                 await env.stakingContract.withdrawCooldown();
             const tokenId = 1;
 
-            await time.setNextBlockTimestamp(
-                env.aliceStake0.lockupEndTime,
-            );
+            await time.setNextBlockTimestamp(env.aliceStake0.lockupEndTime);
             await env.stakingContract
                 .connect(env.alice)
                 ["unstake(uint256)"](tokenId);
@@ -754,43 +1089,40 @@ describe("Unit-tests for the Staking contract", () => {
                 BigInt(env.aliceStake0.lockupEndTime) + withdrawCooldown,
             );
 
-            
-            const tx = env.stakingContract
-                .connect(env.alice)
-                .withdraw(tokenId);
+            const tx = env.stakingContract.connect(env.alice).withdraw(tokenId);
 
-            await expect(tx)
-                .to.changeTokenBalances(
-                    env.token,
-                    [env.alice, env.stakingContract],
-                    [env.aliceBalance, -env.aliceBalance],
-                );
+            await expect(tx).to.changeTokenBalances(
+                env.token,
+                [env.alice, env.stakingContract],
+                [env.aliceBalance, -env.aliceBalance],
+            );
 
             await expect(tx)
                 .emit(env.stakingContract, "Withdraw")
                 .withArgs(env.alice, tokenId, env.aliceBalance);
             (await tx).wait();
 
-            expect(await env.stakingContract.totalUserStaked(env.alice)).to.equal(
-                0,
-            );
+            expect(
+                await env.stakingContract.totalUserStaked(env.alice),
+            ).to.equal(0);
         });
 
         describe("Reverts", () => {
             it("In case of non-stake owner", async () => {
                 const env = await loadFixture(prepareEnvWithUnstakedStakes);
-                const withdrawTime = (await env.stakingContract.stakeInfo(1)).withdrawAllowedTime;
+                const withdrawTime = (await env.stakingContract.stakeInfo(1))
+                    .withdrawAllowedTime;
                 await time.setNextBlockTimestamp(withdrawTime);
 
                 const tokenId = 1;
                 await expect(
-                    env.stakingContract
-                        .connect(env.bob)
-                        .withdraw(tokenId),
-                ).revertedWithCustomError(
-                    env.stakingContract,
-                    "NotStakeOwner",
-                ).withArgs(tokenId);
+                    env.stakingContract.connect(env.bob).withdraw(tokenId),
+                )
+                    .revertedWithCustomError(
+                        env.stakingContract,
+                        "NotStakeOwner",
+                    )
+                    .withArgs(tokenId);
             });
 
             it("In case of not unstaked yet", async () => {
@@ -798,39 +1130,37 @@ describe("Unit-tests for the Staking contract", () => {
 
                 const tokenId = 1;
                 await expect(
-                    env.stakingContract
-                        .connect(env.alice)
-                        .withdraw(tokenId),
-                ).revertedWithCustomError(
-                    env.stakingContract,
-                    "NotUnstakedYet",
-                ).withArgs();
+                    env.stakingContract.connect(env.alice).withdraw(tokenId),
+                )
+                    .revertedWithCustomError(
+                        env.stakingContract,
+                        "NotUnstakedYet",
+                    )
+                    .withArgs();
             });
 
             it("In case stake already withdrawn", async () => {
                 const env = await loadFixture(prepareEnvWithUnstakedStakes);
-                const withdrawTime = (await env.stakingContract.stakeInfo(1)).withdrawAllowedTime;
+                const withdrawTime = (await env.stakingContract.stakeInfo(1))
+                    .withdrawAllowedTime;
                 await time.setNextBlockTimestamp(withdrawTime);
 
                 const tokenId = 1;
-                await env.stakingContract
-                    .connect(env.alice)
-                    .withdraw(tokenId);
+                await env.stakingContract.connect(env.alice).withdraw(tokenId);
 
                 await expect(
-                    env.stakingContract
-                        .connect(env.alice)
-                        .withdraw(tokenId),
-                ).revertedWithCustomError(
-                    env.stakingContract,
-                    "NotStakeOwner",
-                ).withArgs(tokenId);
+                    env.stakingContract.connect(env.alice).withdraw(tokenId),
+                )
+                    .revertedWithCustomError(
+                        env.stakingContract,
+                        "NotStakeOwner",
+                    )
+                    .withArgs(tokenId);
             });
         });
     });
 
     describe("{setAllowedDuration} function", () => {
-        
         it("Sets new allowed duration", async () => {
             const env = await loadFixture(prepareEnvWithGrantedRoles);
             const duration = 85 * DAY_SEC;
@@ -879,16 +1209,19 @@ describe("Unit-tests for the Staking contract", () => {
                 const env = await loadFixture(prepareEnvWithGrantedRoles);
                 const duration = 60 * DAY_SEC;
                 const allowed = false;
-                const managerRole = await env.stakingContract.CONTRACT_MANAGER_ROLE();
+                const managerRole =
+                    await env.stakingContract.CONTRACT_MANAGER_ROLE();
 
                 await expect(
                     env.stakingContract
                         .connect(env.alice)
                         .setAllowedDuration(duration, allowed),
-                ).revertedWithCustomError(
-                    env.stakingContract,
-                    "AccessControlUnauthorizedAccount",
-                ).withArgs(env.alice, managerRole);
+                )
+                    .revertedWithCustomError(
+                        env.stakingContract,
+                        "AccessControlUnauthorizedAccount",
+                    )
+                    .withArgs(env.alice, managerRole);
             });
         });
     });
@@ -919,27 +1252,26 @@ describe("Unit-tests for the Staking contract", () => {
                 env.stakingContract
                     .connect(env.alice)
                     .stake(newMinStakeAmount - 1n, 30 * DAY_SEC),
-            ).revertedWithCustomError(
-                env.stakingContract,
-                "NotAllowedAmount",
-            );
-
+            ).revertedWithCustomError(env.stakingContract, "NotAllowedAmount");
         });
 
         describe("Reverts", () => {
             it("In case of non-admin", async () => {
                 const env = await loadFixture(prepareEnvWithGrantedRoles);
                 const newMinStakeAmount = WeiPerEther * 100n;
-                const managerRole = await env.stakingContract.CONTRACT_MANAGER_ROLE();
+                const managerRole =
+                    await env.stakingContract.CONTRACT_MANAGER_ROLE();
 
                 await expect(
                     env.stakingContract
                         .connect(env.alice)
                         .setMinStakeAmount(newMinStakeAmount),
-                ).revertedWithCustomError(
-                    env.stakingContract,
-                    "AccessControlUnauthorizedAccount",
-                ).withArgs(env.alice, managerRole);
+                )
+                    .revertedWithCustomError(
+                        env.stakingContract,
+                        "AccessControlUnauthorizedAccount",
+                    )
+                    .withArgs(env.alice, managerRole);
             });
         });
     });
@@ -962,7 +1294,6 @@ describe("Unit-tests for the Staking contract", () => {
                 newWithdrawCooldown,
             );
 
-
             await env.token
                 .connect(env.alice)
                 .approve(env.stakingContract, env.aliceBalance);
@@ -974,46 +1305,54 @@ describe("Unit-tests for the Staking contract", () => {
             await env.stakingContract
                 .connect(env.alice)
                 .stake(env.aliceBalance, stakeDuration);
-            
+
             const tokenId = 1;
             await time.setNextBlockTimestamp(stakeStartTime + stakeDuration);
             await env.stakingContract
-                .connect(env.alice)["unstake(uint256)"](tokenId);
+                .connect(env.alice)
+                ["unstake(uint256)"](tokenId);
 
             const stakeInfo = await env.stakingContract.stakeInfo(tokenId);
-            expect(stakeInfo.withdrawAllowedTime).to.equal(stakeStartTime + stakeDuration + newWithdrawCooldown);
-
+            expect(stakeInfo.withdrawAllowedTime).to.equal(
+                stakeStartTime + stakeDuration + newWithdrawCooldown,
+            );
         });
 
         describe("Reverts", () => {
             it("In case of non-admin", async () => {
                 const env = await loadFixture(prepareEnvWithGrantedRoles);
                 const newWithdrawCooldown = 65 * DAY_SEC;
-                const managerRole = await env.stakingContract.CONTRACT_MANAGER_ROLE();
+                const managerRole =
+                    await env.stakingContract.CONTRACT_MANAGER_ROLE();
 
                 await expect(
                     env.stakingContract
                         .connect(env.alice)
                         .setWithdrawCooldown(newWithdrawCooldown),
-                ).revertedWithCustomError(
-                    env.stakingContract,
-                    "AccessControlUnauthorizedAccount",
-                ).withArgs(env.alice, managerRole);
+                )
+                    .revertedWithCustomError(
+                        env.stakingContract,
+                        "AccessControlUnauthorizedAccount",
+                    )
+                    .withArgs(env.alice, managerRole);
             });
 
             it("In case of too high withdraw cooldown", async () => {
                 const env = await loadFixture(prepareEnvWithGrantedRoles);
-                const maxWithdrawCooldown = await env.stakingContract.MAX_WITHDRAW_COOLDOWN();
+                const maxWithdrawCooldown =
+                    await env.stakingContract.MAX_WITHDRAW_COOLDOWN();
                 const newWithdrawCooldown = maxWithdrawCooldown + 1n;
 
                 await expect(
                     env.stakingContract
                         .connect(env.managerAdmin)
                         .setWithdrawCooldown(newWithdrawCooldown),
-                ).revertedWithCustomError(
-                    env.stakingContract,
-                    "MaxWithdrawCooldown",
-                ).withArgs();
+                )
+                    .revertedWithCustomError(
+                        env.stakingContract,
+                        "MaxWithdrawCooldown",
+                    )
+                    .withArgs();
             });
         });
     });
@@ -1024,25 +1363,26 @@ describe("Unit-tests for the Staking contract", () => {
             expect(await env.stakingContract.unlockedAll()).to.equal(false);
 
             await env.stakingContract.connect(env.pauserAdmin).pause();
-            const unlockTx = env.stakingContract.connect(env.emergencyAdmin).emergencyUnlock();
-            await expect(unlockTx).to.emit(env.stakingContract, "EmergencyUnlock");
+            const unlockTx = env.stakingContract
+                .connect(env.emergencyAdmin)
+                .emergencyUnlock();
+            await expect(unlockTx).to.emit(
+                env.stakingContract,
+                "EmergencyUnlock",
+            );
             (await unlockTx).wait();
 
             expect(await env.stakingContract.unlockedAll()).to.equal(true);
 
-            
             // alice can withdraw
             let tokenId = 1;
-            let tx = env.stakingContract
-                .connect(env.alice)
-                .withdraw(tokenId);
-            
-            await expect(tx)
-                .to.changeTokenBalances(
-                    env.token,
-                    [env.alice, env.stakingContract],
-                    [env.aliceBalance, -env.aliceBalance],
-                );
+            let tx = env.stakingContract.connect(env.alice).withdraw(tokenId);
+
+            await expect(tx).to.changeTokenBalances(
+                env.token,
+                [env.alice, env.stakingContract],
+                [env.aliceBalance, -env.aliceBalance],
+            );
 
             await expect(tx)
                 .emit(env.stakingContract, "Withdraw")
@@ -1064,31 +1404,41 @@ describe("Unit-tests for the Staking contract", () => {
             await env.stakingContract.connect(env.carol).withdraw(tokenId);
 
             expect(await env.stakingContract.totalStaked()).to.equal(0);
-            expect(await env.stakingContract.totalUserStaked(env.alice)).to.equal(0);
-            expect(await env.stakingContract.totalUserStaked(env.bob)).to.equal(0);
-            expect(await env.stakingContract.totalUserStaked(env.carol)).to.equal(0);
+            expect(
+                await env.stakingContract.totalUserStaked(env.alice),
+            ).to.equal(0);
+            expect(await env.stakingContract.totalUserStaked(env.bob)).to.equal(
+                0,
+            );
+            expect(
+                await env.stakingContract.totalUserStaked(env.carol),
+            ).to.equal(0);
 
             expect(await env.token.balanceOf(env.stakingContract)).to.equal(0);
-            expect(await env.token.balanceOf(env.alice)).to.equal(env.aliceBalance);
+            expect(await env.token.balanceOf(env.alice)).to.equal(
+                env.aliceBalance,
+            );
             expect(await env.token.balanceOf(env.bob)).to.equal(env.bobBalance);
-            expect(await env.token.balanceOf(env.carol)).to.equal(env.carolBalance);
-
+            expect(await env.token.balanceOf(env.carol)).to.equal(
+                env.carolBalance,
+            );
         });
 
         describe("Reverts", () => {
             it("In case of non-emergency admin", async () => {
                 const env = await loadFixture(prepareEnvWithGrantedRoles);
-                const emergencyRole = await env.stakingContract.EMERGENCY_MANAGER_ROLE();
+                const emergencyRole =
+                    await env.stakingContract.EMERGENCY_MANAGER_ROLE();
 
                 await env.stakingContract.connect(env.pauserAdmin).pause();
                 await expect(
-                    env.stakingContract
-                        .connect(env.alice)
-                        .emergencyUnlock(),
-                ).revertedWithCustomError(
-                    env.stakingContract,
-                    "AccessControlUnauthorizedAccount",
-                ).withArgs(env.alice, emergencyRole);
+                    env.stakingContract.connect(env.alice).emergencyUnlock(),
+                )
+                    .revertedWithCustomError(
+                        env.stakingContract,
+                        "AccessControlUnauthorizedAccount",
+                    )
+                    .withArgs(env.alice, emergencyRole);
             });
 
             it("In case of non-paused contract", async () => {
@@ -1098,10 +1448,12 @@ describe("Unit-tests for the Staking contract", () => {
                     env.stakingContract
                         .connect(env.emergencyAdmin)
                         .emergencyUnlock(),
-                ).revertedWithCustomError(
-                    env.stakingContract,
-                    "ExpectedPause",
-                ).withArgs();
+                )
+                    .revertedWithCustomError(
+                        env.stakingContract,
+                        "ExpectedPause",
+                    )
+                    .withArgs();
             });
         });
     });
@@ -1118,14 +1470,15 @@ describe("Unit-tests for the Staking contract", () => {
         describe("Reverts", () => {
             it("In case of non-pauser", async () => {
                 const env = await loadFixture(prepareEnvWithStakes);
-                await expect(
-                    env.stakingContract
-                        .connect(env.alice)
-                        .pause(),
-                ).revertedWithCustomError(
-                    env.stakingContract,
-                    "AccessControlUnauthorizedAccount",
-                ).withArgs(env.alice, await env.stakingContract.PAUSER_ROLE());
+                await expect(env.stakingContract.connect(env.alice).pause())
+                    .revertedWithCustomError(
+                        env.stakingContract,
+                        "AccessControlUnauthorizedAccount",
+                    )
+                    .withArgs(
+                        env.alice,
+                        await env.stakingContract.PAUSER_ROLE(),
+                    );
             });
         });
     });
@@ -1143,29 +1496,29 @@ describe("Unit-tests for the Staking contract", () => {
         describe("Reverts", () => {
             it("In case of non-pauser", async () => {
                 const env = await loadFixture(prepareEnvWithGrantedRoles);
-                await expect(
-                    env.stakingContract
-                        .connect(env.alice)
-                        .unpause(),
-                ).revertedWithCustomError(
-                    env.stakingContract,
-                    "AccessControlUnauthorizedAccount",
-                ).withArgs(env.alice, await env.stakingContract.UNPAUSER_ROLE());
+                await expect(env.stakingContract.connect(env.alice).unpause())
+                    .revertedWithCustomError(
+                        env.stakingContract,
+                        "AccessControlUnauthorizedAccount",
+                    )
+                    .withArgs(
+                        env.alice,
+                        await env.stakingContract.UNPAUSER_ROLE(),
+                    );
             });
 
             it("In case of contract unlocked", async () => {
                 const env = await loadFixture(prepareEnvWithGrantedRoles);
                 await env.stakingContract.connect(env.pauserAdmin).pause();
-                await env.stakingContract.connect(env.emergencyAdmin).emergencyUnlock();
+                await env.stakingContract
+                    .connect(env.emergencyAdmin)
+                    .emergencyUnlock();
 
                 await expect(
-                    env.stakingContract
-                        .connect(env.unpauserAdmin)
-                        .unpause(),
-                ).revertedWithCustomError(
-                    env.stakingContract,
-                    "Unlocked",
-                ).withArgs();
+                    env.stakingContract.connect(env.unpauserAdmin).unpause(),
+                )
+                    .revertedWithCustomError(env.stakingContract, "Unlocked")
+                    .withArgs();
             });
         });
     });
@@ -1174,23 +1527,30 @@ describe("Unit-tests for the Staking contract", () => {
         it("Returns stakes for user", async () => {
             const env = await loadFixture(prepareEnvWithStakes);
 
-            const aliceStakes = await env.stakingContract.getUserStakes(env.alice);
+            const aliceStakes = await env.stakingContract.getUserStakes(
+                env.alice,
+            );
             expect(aliceStakes.length).to.equal(1);
 
             expect(aliceStakes[0].tokenId).to.equal(1);
             expect(aliceStakes[0].amount).to.equal(env.aliceStake0.amount);
-            expect(aliceStakes[0].startTime).to.equal(env.aliceStake0.startTime);
-            expect(aliceStakes[0].lockupEndTime).to.equal(env.aliceStake0.lockupEndTime);
+            expect(aliceStakes[0].startTime).to.equal(
+                env.aliceStake0.startTime,
+            );
+            expect(aliceStakes[0].lockupEndTime).to.equal(
+                env.aliceStake0.lockupEndTime,
+            );
             expect(aliceStakes[0].withdrawAllowedTime).to.equal(0);
 
             const bobStakes = await env.stakingContract.getUserStakes(env.bob);
             expect(bobStakes.length).to.equal(2);
 
-            expect(aliceStakes[0].tokenId).to.equal(2);
-            expect(aliceStakes[1].tokenId).to.equal(3);
+            expect(bobStakes[0].tokenId).to.equal(2);
+            expect(bobStakes[1].tokenId).to.equal(3);
 
-
-            const carolStakes = await env.stakingContract.getUserStakes(env.carol);
+            const carolStakes = await env.stakingContract.getUserStakes(
+                env.carol,
+            );
             expect(carolStakes.length).to.equal(3);
 
             expect(carolStakes[0].tokenId).to.equal(4);
@@ -1198,20 +1558,80 @@ describe("Unit-tests for the Staking contract", () => {
             expect(carolStakes[2].tokenId).to.equal(6);
         });
     });
-});
 
+    describe("Multicall", async () => {
+        it("Executes multiple calls in one transaction", async () => {
+            const env = await loadFixture(prepareEnvWithGrantedRoles);
+            await env.token
+                .connect(env.alice)
+                .approve(env.stakingContract, env.aliceBalance);
+
+            const aliceStakeAmount0 = WeiPerEther * 100n;
+            const aliceStakeDuration0 = 30 * DAY_SEC;
+            const aliceStakeAmount1 = WeiPerEther * 200n;
+            const aliceStakeDuration1 = 60 * DAY_SEC;
+
+            const currentTime = await time.latest();
+            const stakeStartTime = currentTime + 10;
+            await time.setNextBlockTimestamp(stakeStartTime);
+
+            const tx = env.stakingContract
+                .connect(env.alice)
+                .multicall([
+                    env.stakingContract.interface.encodeFunctionData("stake", [
+                        aliceStakeAmount0,
+                        aliceStakeDuration0,
+                    ]),
+                    env.stakingContract.interface.encodeFunctionData("stake", [
+                        aliceStakeAmount1,
+                        aliceStakeDuration1,
+                    ]),
+                ]);
+
+            await expect(tx)
+                .to.emit(env.stakingContract, "Stake")
+                .withArgs(
+                    env.alice,
+                    1,
+                    aliceStakeAmount0,
+                    stakeStartTime,
+                    stakeStartTime + aliceStakeDuration0,
+                )
+                .to.emit(env.stakingContract, "Stake")
+                .withArgs(
+                    env.alice,
+                    2,
+                    aliceStakeAmount1,
+                    stakeStartTime,
+                    stakeStartTime + aliceStakeDuration1,
+                );
+
+            (await tx).wait();
+
+            expect(await env.stakingContract.lastId()).to.equal(2);
+
+            const aliceStakes = await env.stakingContract.getUserStakes(
+                env.alice,
+            );
+            expect(aliceStakes.length).to.equal(2);
+
+            expect(aliceStakes[0].amount).to.equal(aliceStakeAmount0);
+            expect(aliceStakes[1].amount).to.equal(aliceStakeAmount1);
+
+            // nftReceipt
+            expect(await env.nftReceipt.ownerOf(1)).to.equal(env.alice);
+            expect(await env.nftReceipt.ownerOf(2)).to.equal(env.alice);
+        });
+    });
+});
 
 async function prepareEnvWithUnstakedStakes() {
     const env = await loadFixture(prepareEnvWithStakes);
     await time.setNextBlockTimestamp(env.aliceStake0.lockupEndTime);
-    await env.stakingContract
-        .connect(env.alice)
-        ["unstake(uint256)"](1);
-    
+    await env.stakingContract.connect(env.alice)["unstake(uint256)"](1);
+
     await time.setNextBlockTimestamp(env.bobStake0.lockupEndTime);
-    await env.stakingContract
-        .connect(env.bob)
-        ["unstake(uint256)"](2);
+    await env.stakingContract.connect(env.bob)["unstake(uint256)"](2);
 
     return {
         ...env,
