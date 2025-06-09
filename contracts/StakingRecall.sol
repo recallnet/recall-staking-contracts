@@ -23,52 +23,24 @@ import {
 
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-
-
-error ZeroAddress();
-error NotAllowedAmount(uint256 amount);
-error NotAllowedDuration(uint256 duration);
-error TooEarlyForUnstake();
-error TooEarlyForRelock();
-error NotUnstakedYet();
-error AlreadyUnstaked();
-error NonPartialUnstake();
-error NotStakeOwner(uint256 id);
-error MaxWithdrawCooldown();
-error Unlocked();
+import {IStaking} from "./interfaces/IStaking.sol";
 
 contract Staking is
     Initializable,
     PausableUpgradeable,
     AccessControlUpgradeable,
     ReentrancyGuardUpgradeable,
-    MulticallUpgradeable
+    MulticallUpgradeable,
+    IStaking
 {
     using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.UintSet;
 
-    event Stake(
-        address staker,
-        uint256 stakeId,
-        uint256 amount,
-        uint256 startTime,
-        uint256 lockupEndTime
-    );
-
-    event Relock(address staker, uint256 stakeId, uint256 duration);
-    event Unstake(address staker, uint256 stakeId, uint256 amount);
-    event Withdraw(address staker, uint256 stakeId, uint256 amount);
-
-    event UpdateAllowedDuration(uint256 duration, bool allowed);
-    event UpdateMinStakeAmount(uint256 newMinStakeAmount);
-    event UpdateWithdrawCooldown(uint256 newWithdrawCooldown);
-    event EmergencyUnlock();
-
     /// @notice Token to stake
-    IERC20 public stakeToken;
+    IERC20 public override stakeToken;
 
     /// @notice NFT receipt contract (represents receipt of each stake)
-    INftReceipt public nftReceipt;
+    INftReceipt public override nftReceipt;
 
     /// @notice Last stake id
     uint256 public lastId;
@@ -94,25 +66,10 @@ contract Staking is
 
     bytes32 public constant UNPAUSER_ROLE = keccak256("UNPAUSER_ROLE");
 
-    struct StakeInfo {
-        uint256 amount;
-        uint64 startTime;
-        uint64 lockupEndTime;
-        uint64 withdrawAllowedTime;
-    }
-
-    struct StakeInfoWithId {
-        uint256 tokenId; // stake id
-        uint256 amount; // stake amount
-        uint64 startTime; // stake start time
-        uint64 lockupEndTime; // lockup end timestamp
-        uint64 withdrawAllowedTime; // zero until it’s unstaked
-    }
-
     /// @notice Mapping of allowed durations
     mapping(uint256 duration => bool isAllowed) public allowedDurations;
 
-    // cumulative amount of all user stakes (never decreases)
+    /// @notice Total amount of all user's stakes
     mapping(address account => uint256) public totalUserStaked;
 
     mapping(uint256 tokenId => StakeInfo stake) public stakeInfo;
@@ -189,6 +146,7 @@ contract Staking is
      * and creates a new one with new lock amount and duration
      * @dev The previous stake will be decreased and created new one 
 
+
     the previous stake here that exists right now will be decreased 
     and in parallel we create a new one with new lock amount. 
 
@@ -201,6 +159,7 @@ contract Staking is
         uint256 newLockAmount
     ) external whenNotPaused nonReentrant returns (uint256) {
         if (!allowedDurations[newLockDuration]) revert NotAllowedDuration(newLockDuration);
+        if (newLockAmount == 0 || newLockAmount < minStakeAmount) revert NotAllowedAmount(newLockAmount);
         if (!_tokenIds[msg.sender].contains(tokenId)) revert NotStakeOwner(tokenId);
 
         StakeInfo storage userOldStake = stakeInfo[tokenId];
@@ -217,7 +176,7 @@ contract Staking is
         stakeInfo[newTokenId] = StakeInfo(
             uint256(newLockAmount),
             uint64(block.timestamp),
-            uint64(newLockDuration),
+            uint64(block.timestamp + newLockDuration),
             0
         );
         nftReceipt.mint(msg.sender, newTokenId);
@@ -235,10 +194,11 @@ contract Staking is
 
     /**
      * @notice Relocks the entire stake for a new duration
-     * @dev The `tokenId` must be owned by `msg.sender` 
+     * @dev The `tokenId` must be owned by `msg.sender`
      *      and the stake must be unlocked (passed lockupTime) and must not be unstaked
      * @param tokenId - The id of the stake to relock
      * @param newLockDuration - The new duration of the stake
+     * @return The id of the new stake
      */
     function relock(
         uint256 tokenId,
@@ -282,7 +242,7 @@ contract Staking is
      * Creates a new stake for the remaining amount with previous conditions.
      * @param tokenId - The id of the stake to unstake
      * @param amountToUnstake - The amount to unstake.
-     * @return The id of the new stake 
+     * @return The id of the new stake
      */
     function unstake(
         uint256 tokenId,
