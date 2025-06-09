@@ -282,14 +282,16 @@ contract RewardAllocation is
             revert RewardAllocation__ThisTokenIsEmergencyWithdrawn(token);
         }
 
+        uint256 tokenBalance = IERC20(token).balanceOf(address(this));
+        if (tokenBalance == 0) {
+            return;
+        }
+
         delete totalOverallClaimableAmountPerToken[token];
 
         isTokenEmergencyWithdrawn[token] = true;
 
-        uint256 tokenBalance = IERC20(token).balanceOf(address(this));
-        if (tokenBalance > 0) {
-            IERC20(token).safeTransfer(to, tokenBalance);
-        }
+        IERC20(token).safeTransfer(to, tokenBalance);
 
         emit TokensEmergencyWithdrawn(token, to, tokenBalance);
     }
