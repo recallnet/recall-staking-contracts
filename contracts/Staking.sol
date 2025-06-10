@@ -80,7 +80,7 @@ contract Staking is
     /// @inheritdoc IStaking
     mapping(uint256 duration => bool isAllowed) public override allowedDurations;
 
-    mapping(uint256 tokenId => StakeInfo stake) public  stakeInfo;
+    mapping(uint256 tokenId => StakeInfo stake) private _stakeInfo;
 
     /// @dev Mapping of stake owners to the set of their stakes
     mapping(address => EnumerableSet.UintSet) private _tokenIds;
@@ -140,7 +140,7 @@ contract Staking is
 
         uint256 lockupEndTime = block.timestamp + duration;
         _tokenIds[msg.sender].add(newTokenId);
-        stakeInfo[newTokenId] = StakeInfo(
+        _stakeInfo[newTokenId] = StakeInfo(
             uint256(amount),
             uint64(block.timestamp),
             uint64(lockupEndTime),
@@ -165,18 +165,18 @@ contract Staking is
             revert NotAllowedAmount(newLockAmount);
         if (!_tokenIds[msg.sender].contains(tokenId)) revert NotStakeOwner(tokenId);
 
-        StakeInfo storage userOldStake = stakeInfo[tokenId];
+        StakeInfo storage userOldStake = _stakeInfo[tokenId];
         if (userOldStake.withdrawAllowedTime != 0) revert AlreadyUnstaked();
         if (block.timestamp < userOldStake.lockupEndTime) revert TooEarlyForRelock();
 
-        // update existing stakeInfo
+        // update existing _stakeInfo
         userOldStake.amount -= newLockAmount;
 
-        // create new stakeInfo
+        // create new _stakeInfo
         uint256 newTokenId = ++lastId;
 
         _tokenIds[msg.sender].add(newTokenId);
-        stakeInfo[newTokenId] = StakeInfo(
+        _stakeInfo[newTokenId] = StakeInfo(
             uint256(newLockAmount),
             uint64(block.timestamp),
             uint64(block.timestamp + newLockDuration),
@@ -203,15 +203,15 @@ contract Staking is
         if (!allowedDurations[newLockDuration]) revert NotAllowedDuration(newLockDuration);
         if (!_tokenIds[msg.sender].remove(tokenId)) revert NotStakeOwner(tokenId);
 
-        StakeInfo memory userOldStake = stakeInfo[tokenId];
+        StakeInfo memory userOldStake = _stakeInfo[tokenId];
         if (userOldStake.withdrawAllowedTime != 0) revert AlreadyUnstaked();
         if (block.timestamp < userOldStake.lockupEndTime) revert TooEarlyForRelock();
-        delete stakeInfo[tokenId];
+        delete _stakeInfo[tokenId];
 
-        // create new stakeInfo
+        // create new _stakeInfo
         uint256 newTokenId = ++lastId;
         _tokenIds[msg.sender].add(newTokenId);
-        stakeInfo[newTokenId] = StakeInfo(
+        _stakeInfo[newTokenId] = StakeInfo(
             uint256(userOldStake.amount),
             uint64(block.timestamp),
             uint64(block.timestamp + newLockDuration),
@@ -238,7 +238,7 @@ contract Staking is
         uint256 tokenId,
         uint256 amountToUnstake
     ) public whenNotPaused nonReentrant returns (uint256) {
-        StakeInfo storage userOldStake = stakeInfo[tokenId];
+        StakeInfo storage userOldStake = _stakeInfo[tokenId];
         if (block.timestamp < userOldStake.lockupEndTime) revert TooEarlyForUnstake();
         if (userOldStake.withdrawAllowedTime != 0) revert AlreadyUnstaked();
         if (!_tokenIds[msg.sender].contains(tokenId)) revert NotStakeOwner(tokenId);
@@ -249,10 +249,10 @@ contract Staking is
         userOldStake.withdrawAllowedTime = uint64(block.timestamp + withdrawCooldown);
 
         if (newStakeAmount == 0) revert NonPartialUnstake();
-        // create new stakeInfo with remaining amount and same startTime, lockupEndTime
+        // create new _stakeInfo with remaining amount and same startTime, lockupEndTime
         uint256 newTokenId = ++lastId;
         _tokenIds[msg.sender].add(newTokenId);
-        stakeInfo[newTokenId] = StakeInfo(
+        _stakeInfo[newTokenId] = StakeInfo(
             uint256(newStakeAmount),
             uint64(userOldStake.startTime),
             uint64(userOldStake.lockupEndTime),
@@ -273,7 +273,7 @@ contract Staking is
 
     /// @inheritdoc IStaking
     function unstake(uint256 tokenId) external whenNotPaused nonReentrant {
-        StakeInfo storage userStake = stakeInfo[tokenId];
+        StakeInfo storage userStake = _stakeInfo[tokenId];
         if (block.timestamp < userStake.lockupEndTime) revert TooEarlyForUnstake();
         if (userStake.withdrawAllowedTime != 0) revert AlreadyUnstaked();
         if (!_tokenIds[msg.sender].contains(tokenId)) revert NotStakeOwner(tokenId);
@@ -285,14 +285,14 @@ contract Staking is
 
     /// @inheritdoc IStaking
     function withdraw(uint256 tokenId) public nonReentrant {
-        StakeInfo memory userStake = stakeInfo[tokenId];
+        StakeInfo memory userStake = _stakeInfo[tokenId];
 
         if (!unlockedAll) {
             if (block.timestamp < userStake.withdrawAllowedTime) revert NotUnstakedYet();
             if (!_tokenIds[msg.sender].remove(tokenId)) revert NotStakeOwner(tokenId);
         }
 
-        delete stakeInfo[tokenId];
+        delete _stakeInfo[tokenId];
 
         totalUserStaked[msg.sender] -= userStake.amount;
         totalStaked -= userStake.amount;
@@ -303,6 +303,8 @@ contract Staking is
         emit Withdraw(msg.sender, tokenId, userStake.amount);
     }
 
+    /* VIEW FUNCTIONS */
+
     /// @inheritdoc IStaking
     function getUserStakes(address user) external view returns (StakeInfoWithId[] memory) {
         uint256[] memory tokenIds = _tokenIds[user].values();
@@ -311,14 +313,20 @@ contract Staking is
         for (uint256 i = 0; i < tokenIds.length; i++) {
             _stakes[i] = StakeInfoWithId(
                 tokenIds[i],
-                stakeInfo[tokenIds[i]].amount,
-                stakeInfo[tokenIds[i]].startTime,
-                stakeInfo[tokenIds[i]].lockupEndTime,
-                stakeInfo[tokenIds[i]].withdrawAllowedTime
+                _stakeInfo[tokenIds[i]].amount,
+                _stakeInfo[tokenIds[i]].startTime,
+                _stakeInfo[tokenIds[i]].lockupEndTime,
+                _stakeInfo[tokenIds[i]].withdrawAllowedTime
             );
         }
         return _stakes;
     }
+
+    /// @inheritdoc IStaking
+    function stakeInfo(uint256 tokenId) external view returns (StakeInfo memory) {
+        return _stakeInfo[tokenId];
+    }
+
 
     /* ADMIN FUNCTIONS */
 

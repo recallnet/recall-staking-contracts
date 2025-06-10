@@ -233,13 +233,6 @@ interface IStaking {
     function allowedDurations(uint256 duration) external view returns (bool);
 
     /**
-     * @notice Returns the stake information for a given token id.
-     * @param tokenId The id of the stake.
-     * @return The `StakeInfo` struct containing details for the specified stake.
-     */
-    // function stakeInfo(uint256 tokenId) external view returns (StakeInfo memory);
-
-    /**
      * @notice Initializes the Staking contract.
      * Sets up staking token, NFT receipt, initial allowed durations, withdrawal cooldown period,
      * access control, reentrancy guard, and pausable features.
@@ -260,18 +253,15 @@ interface IStaking {
     function stake(uint256 amount, uint256 duration) external returns (uint256);
 
     /**
-     * @notice Partial relock of the stake:
-     * decreases the amount of the existing stake 
-     * and creates a new one with new lock amount and duration
-     * @dev The previous stake will be decreased and created new one 
-
-
-    the previous stake here that exists right now will be decreased 
-    and in parallel we create a new one with new lock amount. 
-
-    in partial relock, make new stakeInfo for the locked share: with startTime set to when relock is called.
-    The existing stakeInfo holds the remaining unlocked-but-still-staked amount
-    */
+     * @notice Partially relocks the stake: splits existing stake into two
+     * @dev Decreases the amount of the existing stake and creates a new stake 
+     *      with specified amount and duration. The original stake must be unlocked
+     *      (passed lockupTime) and not yet unstaked.
+     * @param tokenId The id of the existing stake to partially relock
+     * @param newLockDuration The duration for the new stake
+     * @param newLockAmount The amount to transfer from old stake to new stake
+     * @return The id of the newly created stake
+     */
     function relock(
         uint256 tokenId,
         uint256 newLockDuration,
@@ -311,11 +301,21 @@ interface IStaking {
      */
     function withdraw(uint256 tokenId) external;
 
+    /* VIEW FUNCTIONS */
+
     /**
      * @notice Returns array of all users stakes
      * @param user The account address of staker
      */
     function getUserStakes(address user) external view returns (StakeInfoWithId[] memory);
+
+    /**
+     * @notice Returns the stake information for a given token id.
+     * @param tokenId The id of the stake.
+     * @return The `StakeInfo` struct containing details for the specified stake.
+     */
+    function stakeInfo(uint256 tokenId) external view returns (StakeInfo memory);
+
 
     /* ADMIN FUNCTIONS */
 
