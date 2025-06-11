@@ -10,8 +10,19 @@ describe("Unit-tests for the NftReceipt contract", () => {
             ethers.ZeroAddress,
         );
 
+        expect(
+            await env.nftReceiptContract.getRoleMemberCount(
+                env.DEFAULT_ADMIN_ROLE,
+            ),
+        ).equals(0);
+        expect(
+            await env.nftReceiptContract.getRoleMemberCount(
+                env.SET_NFT_METADATA_ROLE,
+            ),
+        ).equals(0);
+
         await expect(
-            env.nftReceiptImplementation.initialize(),
+            env.nftReceiptImplementation.initialize(ethers.ZeroAddress),
         ).revertedWithCustomError(
             env.nftReceiptImplementation,
             "InvalidInitialization",
@@ -22,15 +33,29 @@ describe("Unit-tests for the NftReceipt contract", () => {
         it("Core functionality", async () => {
             const env = await loadFixture(prepareEnvWithoutInitialization);
 
-            expect(await env.nftReceiptImplementation.staking()).equals(
-                ethers.ZeroAddress,
-            );
-
-            await env.nftReceiptContract.initialize();
+            await env.nftReceiptContract.initialize(env.admin);
 
             expect(await env.nftReceiptImplementation.staking()).equals(
                 ethers.ZeroAddress,
             );
+
+            expect(
+                await env.nftReceiptContract.getRoleMemberCount(
+                    env.DEFAULT_ADMIN_ROLE,
+                ),
+            ).equals(1);
+            expect(
+                await env.nftReceiptContract.getRoleMemberCount(
+                    env.SET_NFT_METADATA_ROLE,
+                ),
+            ).equals(0);
+
+            expect(
+                await env.nftReceiptContract.getRoleMember(
+                    env.DEFAULT_ADMIN_ROLE,
+                    0,
+                ),
+            ).equals(env.admin);
         });
 
         describe("Reverts", () => {
@@ -38,7 +63,7 @@ describe("Unit-tests for the NftReceipt contract", () => {
                 const env = await loadFixture(prepareEnv);
 
                 await expect(
-                    env.nftReceiptContract.initialize(),
+                    env.nftReceiptContract.initialize(ethers.ZeroAddress),
                 ).revertedWithCustomError(
                     env.nftReceiptContract,
                     "InvalidInitialization",
@@ -174,6 +199,43 @@ describe("Unit-tests for the NftReceipt contract", () => {
         });
     });
 
+    describe("{setBaseURI} function", () => {
+        it("Core functionality", async () => {
+            const env = await loadFixture(prepareEnv);
+
+            const newBaseURIString = env.baseURIString + "new";
+
+            await expect(
+                env.nftReceiptContract
+                    .connect(env.setNftMetadataRole)
+                    .setBaseURI(newBaseURIString),
+            )
+                .emit(env.nftReceiptContract, "BaseURIStringChanged")
+                .withArgs(newBaseURIString);
+
+            expect(await env.nftReceiptContract.baseURIString()).equals(
+                newBaseURIString,
+            );
+        });
+
+        describe("Reverts", () => {
+            it("Wrong caller", async () => {
+                const env = await loadFixture(prepareEnv);
+
+                await expect(
+                    env.nftReceiptContract
+                        .connect(env.alice)
+                        .setBaseURI(env.baseURIString),
+                )
+                    .revertedWithCustomError(
+                        env.nftReceiptContract,
+                        "AccessControlUnauthorizedAccount",
+                    )
+                    .withArgs(env.alice, env.SET_NFT_METADATA_ROLE);
+            });
+        });
+    });
+
     it("{tokensOfOwner} function", async () => {
         const env = await loadFixture(prepareEnvWithStaking);
 
@@ -192,6 +254,42 @@ describe("Unit-tests for the NftReceipt contract", () => {
         expect(mintedIds.length).equals(2);
         expect(mintedIds[0]).equals(mintedId);
         expect(mintedIds[1]).equals(mintedId2);
+    });
+
+    it("{tokenURI} function", async () => {
+        const env = await loadFixture(prepareEnvWithStaking);
+
+        const mintedId = 16;
+
+        await env.nftReceiptContract
+            .connect(env.staking)
+            .mint(env.alice, mintedId);
+
+        const tokenURI = await env.nftReceiptContract.tokenURI(mintedId);
+
+        expect(tokenURI).equals(
+            env.baseURIString + "0x" + mintedId.toString(16),
+        );
+    });
+
+    it("{supportsInterface} function", async () => {
+        const env = await loadFixture(prepareEnvWithStaking);
+
+        expect(
+            await env.nftReceiptContract.supportsInterface("0x80ac58cd"),
+        ).equals(true); // ERC721
+        expect(
+            await env.nftReceiptContract.supportsInterface("0x5b5e139f"),
+        ).equals(true); // ERC721Metadata
+        expect(
+            await env.nftReceiptContract.supportsInterface("0x780e9d63"),
+        ).equals(true); // ERC721Enumerable
+        expect(
+            await env.nftReceiptContract.supportsInterface("0x7965db0b"),
+        ).equals(true); // AccessControl
+        expect(
+            await env.nftReceiptContract.supportsInterface("0x5a05180f"),
+        ).equals(true); // AccessControlEnumerable
     });
 
     it("Non transferable", async () => {
@@ -244,7 +342,7 @@ describe("Unit-tests for the NftReceipt contract", () => {
 });
 
 async function prepareEnvWithStaking() {
-    const env = await loadFixture(prepareEnvWithoutInitialization);
+    const env = await loadFixture(prepareEnv);
 
     await env.nftReceiptContract.setStaking(env.staking);
 
@@ -256,7 +354,15 @@ async function prepareEnvWithStaking() {
 async function prepareEnv() {
     const env = await loadFixture(prepareEnvWithoutInitialization);
 
-    await env.nftReceiptContract.initialize();
+    await env.nftReceiptContract.initialize(env.admin);
+
+    await env.nftReceiptContract
+        .connect(env.admin)
+        .grantRole(env.SET_NFT_METADATA_ROLE, env.setNftMetadataRole);
+
+    await env.nftReceiptContract
+        .connect(env.setNftMetadataRole)
+        .setBaseURI(env.baseURIString);
 
     return {
         ...env,
@@ -264,7 +370,8 @@ async function prepareEnv() {
 }
 
 async function prepareEnvWithoutInitialization() {
-    const [deployer, staking, alice, bob] = await ethers.getSigners();
+    const [deployer, admin, setNftMetadataRole, staking, alice, bob] =
+        await ethers.getSigners();
 
     const nftReceiptFactory = await ethers.getContractFactory("NftReceipt");
     const nftReceiptImplementation = await nftReceiptFactory.deploy();
@@ -282,11 +389,24 @@ async function prepareEnvWithoutInitialization() {
         nftReceiptProxy,
     );
 
+    const baseURIString = "https://example.com/nft/";
+
+    const DEFAULT_ADMIN_ROLE = await nftReceiptContract.DEFAULT_ADMIN_ROLE();
+    const SET_NFT_METADATA_ROLE =
+        await nftReceiptContract.SET_NFT_METADATA_ROLE();
+
     return {
         deployer,
+        admin,
+        setNftMetadataRole,
         staking,
         alice,
         bob,
+
+        DEFAULT_ADMIN_ROLE,
+        SET_NFT_METADATA_ROLE,
+
+        baseURIString,
 
         nftReceiptImplementation,
         nftReceiptContract,

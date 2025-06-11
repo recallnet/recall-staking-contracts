@@ -2,10 +2,13 @@
 pragma solidity >=0.8.0;
 
 import {
+    IAccessControlEnumerable
+} from "@openzeppelin/contracts/access/extensions/IAccessControlEnumerable.sol";
+import {
     IERC721Enumerable
 } from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Enumerable.sol";
 
-interface INftReceipt is IERC721Enumerable {
+interface INftReceipt is IAccessControlEnumerable, IERC721Enumerable {
     /* ERRORS */
 
     /**
@@ -27,21 +30,29 @@ interface INftReceipt is IERC721Enumerable {
      */
     error NftReceipt__TransfersNotAllowed();
 
+    /* EVENTS */
+
+    event BaseURIStringChanged(string newBaseURIString);
+
     /* INITIALIZER */
 
     /**
      * @notice Initializes the contract, setting the name and symbol for the NFT collection.
      * This function is intended to be called only once, typically during the proxy deployment.
      */
-    function initialize() external;
+    function initialize(address defaultAdmin) external;
 
     /* GLOBAL VARIABLES */
+
+    function SET_NFT_METADATA_ROLE() external view returns (bytes32);
 
     /**
      * @notice Returns the address of the main staking contract.
      * @return The address of the authorized staking contract.
      */
     function staking() external view returns (address);
+
+    function baseURIString() external view returns (string memory);
 
     /* FUNCTIONS */
 
@@ -60,6 +71,8 @@ interface INftReceipt is IERC721Enumerable {
      */
     function burn(uint256 tokenId) external;
 
+    /* ADMIN FUNCTIONS */
+
     /**
      * @notice Sets the address of the staking contract.
      * @dev This function is designed to be called only once, right after deployment,
@@ -67,6 +80,8 @@ interface INftReceipt is IERC721Enumerable {
      * @param _staking The address of the staking contract.
      */
     function setStaking(address _staking) external;
+
+    function setBaseURI(string memory newBaseURIString) external;
 
     /* VIEW FUNCTIONS */
 

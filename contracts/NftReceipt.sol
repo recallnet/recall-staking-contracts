@@ -1,17 +1,33 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+
+import {IERC165} from "@openzeppelin/contracts/interfaces/IERC165.sol";
+
 import {
     ERC721EnumerableUpgradeable
 } from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721EnumerableUpgradeable.sol";
+import {
+    AccessControlEnumerableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/extensions/AccessControlEnumerableUpgradeable.sol";
 
 import {INftReceipt} from "./interfaces/INftReceipt.sol";
 
-contract NftReceipt is ERC721EnumerableUpgradeable, INftReceipt {
+contract NftReceipt is
+    ERC721EnumerableUpgradeable,
+    AccessControlEnumerableUpgradeable,
+    INftReceipt
+{
     /* GLOBAL VARIABLES */
+
+    bytes32 public constant override SET_NFT_METADATA_ROLE = keccak256("SET_NFT_METADATA_ROLE");
 
     /// @inheritdoc INftReceipt
     address public override staking;
+
+    /// @inheritdoc INftReceipt
+    string public override baseURIString;
 
     /* MODIFIERS */
 
@@ -36,8 +52,11 @@ contract NftReceipt is ERC721EnumerableUpgradeable, INftReceipt {
     /* INITIALIZER */
 
     /// @inheritdoc INftReceipt
-    function initialize() external override initializer {
+    function initialize(address defaultAdmin) external override initializer {
+        __AccessControlEnumerable_init();
         __ERC721_init("Recall Staking NFT Receipt", "RSNFTR");
+
+        _grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin);
     }
 
     /* EXTERNAL FUNCTIONS */
@@ -52,6 +71,8 @@ contract NftReceipt is ERC721EnumerableUpgradeable, INftReceipt {
         _burn(tokenId);
     }
 
+    /* ADMIN FUNCTIONS */
+
     /// @inheritdoc INftReceipt
     function setStaking(address _staking) external override {
         // @note called only once, during deployment
@@ -60,6 +81,15 @@ contract NftReceipt is ERC721EnumerableUpgradeable, INftReceipt {
         }
 
         staking = _staking;
+    }
+
+    /// @inheritdoc INftReceipt
+    function setBaseURI(
+        string memory newBaseURIString
+    ) external override onlyRole(SET_NFT_METADATA_ROLE) {
+        baseURIString = newBaseURIString;
+
+        emit BaseURIStringChanged({newBaseURIString: newBaseURIString});
     }
 
     /* EXTERNAL VIEW FUNCTIONS */
@@ -74,6 +104,24 @@ contract NftReceipt is ERC721EnumerableUpgradeable, INftReceipt {
         }
 
         return tokenIds;
+    }
+
+    function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
+        return string.concat(baseURIString, Strings.toHexString({value: tokenId}));
+    }
+
+    function supportsInterface(
+        bytes4 interfaceId
+    )
+        public
+        view
+        virtual
+        override(IERC165, ERC721EnumerableUpgradeable, AccessControlEnumerableUpgradeable)
+        returns (bool)
+    {
+        return
+            ERC721EnumerableUpgradeable.supportsInterface(interfaceId) ||
+            AccessControlEnumerableUpgradeable.supportsInterface(interfaceId);
     }
 
     /* INTERNAL FUNCTIONS */
