@@ -50,7 +50,7 @@ interface IStaking {
      * @param lockupEndTime The timestamp when staking is locked up.
      */
     event Stake(
-        address staker,
+        address indexed staker,
         uint256 tokenId,
         uint256 amount,
         uint256 startTime,
@@ -63,7 +63,7 @@ interface IStaking {
      * @param tokenId The id of the stake.
      * @param updatedOldStakeAmount The amount of tokens relocked.
      */
-    event Relock(address staker, uint256 tokenId, uint256 updatedOldStakeAmount);
+    event Relock(address indexed staker, uint256 tokenId, uint256 updatedOldStakeAmount);
 
     /**
      * @notice Emitted when a stake is unstaked.
@@ -71,7 +71,7 @@ interface IStaking {
      * @param tokenId The id of the stake.
      * @param amountToUnstake The amount of tokens unstaked.
      */
-    event Unstake(address staker, uint256 tokenId, uint256 amountToUnstake);
+    event Unstake(address indexed staker, uint256 tokenId, uint256 amountToUnstake);
 
     /**
      * @notice Emitted when a stake is withdrawn.
@@ -79,7 +79,7 @@ interface IStaking {
      * @param tokenId The id of the stake.
      * @param amount The amount of tokens withdrawn.
      */
-    event Withdraw(address staker, uint256 tokenId, uint256 amount);
+    event Withdraw(address indexed staker, uint256 tokenId, uint256 amount);
 
     /**
      * @notice Emitted when the allowed durations are updated.
