@@ -1,0 +1,79 @@
+// SPDX-License-Identifier: MIT
+pragma solidity >=0.8.0;
+
+import {
+    IERC721Enumerable
+} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Enumerable.sol";
+
+interface INftReceipt is IERC721Enumerable {
+    /* ERRORS */
+
+    /**
+     * @notice Thrown when an attempt is made to set the staking contract address
+     * after it has already been set.
+     * The staking address is immutable after the initial setting.
+     */
+    error NftReceipt__StakingAlreadySet();
+
+    /**
+     * @notice Thrown when a function protected by the `onlyStaking` modifier
+     * is called by an address other than the designated staking contract.
+     */
+    error NftReceipt__OnlyStaking();
+
+    /**
+     * @notice Thrown on any attempt to transfer an NFT from one address to another.
+     * These NFT receipts are non-transferable and can only be minted to or burned from an owner's address.
+     */
+    error NftReceipt__TransfersNotAllowed();
+
+    /* INITIALIZER */
+
+    /**
+     * @notice Initializes the contract, setting the name and symbol for the NFT collection.
+     * This function is intended to be called only once, typically during the proxy deployment.
+     */
+    function initialize() external;
+
+    /* GLOBAL VARIABLES */
+
+    /**
+     * @notice Returns the address of the main staking contract.
+     * @return The address of the authorized staking contract.
+     */
+    function staking() external view returns (address);
+
+    /* FUNCTIONS */
+
+    /**
+     * @notice Mints a new NFT receipt and assigns it to a specified owner.
+     * @dev This can only be called by the `staking` contract.
+     * @param to The address to which the new NFT will be minted.
+     * @param tokenId The unique identifier for the new NFT.
+     */
+    function mint(address to, uint256 tokenId) external;
+
+    /**
+     * @notice Burns (destroys) an existing NFT receipt.
+     * @dev This can only be called by the `staking` contract.
+     * @param tokenId The unique identifier of the NFT to be burned.
+     */
+    function burn(uint256 tokenId) external;
+
+    /**
+     * @notice Sets the address of the staking contract.
+     * @dev This function is designed to be called only once, right after deployment,
+     * to prevent unauthorized changes.
+     * @param _staking The address of the staking contract.
+     */
+    function setStaking(address _staking) external;
+
+    /* VIEW FUNCTIONS */
+
+    /**
+     * @notice Retrieves a list of all token IDs owned by a specific address.
+     * @param owner The address to query for token ownership.
+     * @return An array of `uint256` token IDs.
+     */
+    function tokensOfOwner(address owner) external view returns (uint256[] memory);
+}
