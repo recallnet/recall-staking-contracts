@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity 0.8.30;
 
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 
@@ -10,7 +10,7 @@ contract NftReceiptMock is ERC721 {
         _mint(to, tokenId);
     }
 
-    function burn(address from, uint256 tokenId) external {
+    function burn(uint256 tokenId) external {
         _burn(tokenId);
     }
 }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity 0.8.30;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -218,7 +218,7 @@ contract Staking is
             0
         );
 
-        nftReceipt.burn(msg.sender, tokenId);
+        nftReceipt.burn(tokenId);
         nftReceipt.mint(msg.sender, newTokenId);
 
         emit Relock(msg.sender, tokenId, 0);
@@ -297,7 +297,7 @@ contract Staking is
         totalUserStaked[msg.sender] -= userStake.amount;
         totalStaked -= userStake.amount;
 
-        nftReceipt.burn(msg.sender, tokenId);
+        nftReceipt.burn(tokenId);
         stakeToken.safeTransfer(msg.sender, userStake.amount);
 
         emit Withdraw(msg.sender, tokenId, userStake.amount);
