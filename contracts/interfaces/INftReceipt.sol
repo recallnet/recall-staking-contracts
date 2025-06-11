@@ -32,6 +32,10 @@ interface INftReceipt is IAccessControlEnumerable, IERC721Enumerable {
 
     /* EVENTS */
 
+    /**
+     * @notice Emitted when the base URI string is updated.
+     * @param newBaseURIString The new base URI string.
+     */
     event BaseURIStringChanged(string newBaseURIString);
 
     /* INITIALIZER */
@@ -44,6 +48,10 @@ interface INftReceipt is IAccessControlEnumerable, IERC721Enumerable {
 
     /* GLOBAL VARIABLES */
 
+    /**
+     * @notice Returns the role identifier required to set the NFT metadata, such as the base URI.
+     * @return The bytes32 value of the role.
+     */
     function SET_NFT_METADATA_ROLE() external view returns (bytes32);
 
     /**
@@ -52,6 +60,11 @@ interface INftReceipt is IAccessControlEnumerable, IERC721Enumerable {
      */
     function staking() external view returns (address);
 
+    /**
+     * @notice Returns the base URI string used to construct the token URI.
+     * @dev The final token URI is constructed by concatenating this base URI with the token ID.
+     * @return The current base URI string.
+     */
     function baseURIString() external view returns (string memory);
 
     /* FUNCTIONS */
@@ -81,6 +94,11 @@ interface INftReceipt is IAccessControlEnumerable, IERC721Enumerable {
      */
     function setStaking(address _staking) external;
 
+    /**
+     * @notice Sets the base URI string for the token metadata.
+     * @dev Requires the caller to have the `SET_NFT_METADATA_ROLE`.
+     * @param newBaseURIString The new base URI string to be set.
+     */
     function setBaseURI(string memory newBaseURIString) external;
 
     /* VIEW FUNCTIONS */
