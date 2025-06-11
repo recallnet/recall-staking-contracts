@@ -48,12 +48,25 @@ describe("Unit-tests for the Staking contract", () => {
                     env.defaultAdmin,
                 ),
             ).to.equal(false);
+
+            await expect(
+                env.stakingImplementation.initialize(ZeroAddress, ZeroAddress, ZeroAddress),
+            ).revertedWithCustomError(
+                env.stakingImplementation,
+                "InvalidInitialization",
+            );
         });
     });
 
-    describe("Initialization", () => {
+    describe("{initialize} function", () => {
         it("Initialize staking contract", async () => {
-            const env = await loadFixture(prepareEnv);
+            const env = await loadFixture(prepareEnvWithoutInitialization);
+
+            await env.stakingContract.initialize(
+                env.token,
+                env.nftReceipt,
+                env.defaultAdmin,
+            );
 
             expect(await env.stakingContract.stakeToken()).to.equal(env.token);
             expect(await env.stakingContract.nftReceipt()).to.equal(
