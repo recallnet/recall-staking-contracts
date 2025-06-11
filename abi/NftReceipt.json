@@ -26,17 +26,6 @@
     "type": "error"
   },
   {
-    "inputs": [
-      {
-        "internalType": "bytes4",
-        "name": "",
-        "type": "bytes4"
-      }
-    ],
-    "name": "CustomError",
-    "type": "error"
-  },
-  {
     "inputs": [],
     "name": "ERC721EnumerableForbiddenBatchMint",
     "type": "error"
