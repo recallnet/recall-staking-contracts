@@ -51,4 +51,8 @@ export interface EnvConfigInterface {
 
 export interface NetworkConfigInterface {
     waitConfirmations: number;
+
+    staking: {
+        stakeToken: string;
+    };
 }
