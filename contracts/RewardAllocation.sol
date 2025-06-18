@@ -238,7 +238,7 @@ contract RewardAllocation is
         address token,
         address to,
         uint256 withdrawAmount
-    ) external override onlyRole(FUNDS_MANAGER_ROLE) nonReentrant {
+    ) external override onlyRole(FUNDS_MANAGER_ROLE) whenPaused nonReentrant {
         if (token == address(0)) {
             revert RewardAllocation__ZeroAddress();
         }
@@ -271,7 +271,7 @@ contract RewardAllocation is
     function emergencyWithdraw(
         address token,
         address to
-    ) external override onlyRole(FUNDS_MANAGER_ROLE) nonReentrant {
+    ) external override onlyRole(FUNDS_MANAGER_ROLE) whenPaused nonReentrant {
         if (token == address(0)) {
             revert RewardAllocation__ZeroAddress();
         }
