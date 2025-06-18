@@ -50,7 +50,11 @@ describe("Unit-tests for the Staking contract", () => {
             ).to.equal(false);
 
             await expect(
-                env.stakingImplementation.initialize(ZeroAddress, ZeroAddress, ZeroAddress),
+                env.stakingImplementation.initialize(
+                    ZeroAddress,
+                    ZeroAddress,
+                    ZeroAddress,
+                ),
             ).revertedWithCustomError(
                 env.stakingImplementation,
                 "InvalidInitialization",
@@ -655,9 +659,7 @@ describe("Unit-tests for the Staking contract", () => {
                 await expect(
                     env.stakingContract
                         .connect(env.alice)
-                        [
-                            "relock(uint256,uint256)"
-                        ](1, newLockDuration),
+                        ["relock(uint256,uint256)"](1, newLockDuration),
                 )
                     .revertedWithCustomError(
                         env.stakingContract,
@@ -677,9 +679,7 @@ describe("Unit-tests for the Staking contract", () => {
                 await expect(
                     env.stakingContract
                         .connect(env.bob)
-                        [
-                            "relock(uint256,uint256)"
-                        ](1, newLockDuration),
+                        ["relock(uint256,uint256)"](1, newLockDuration),
                 )
                     .revertedWithCustomError(
                         env.stakingContract,
@@ -703,9 +703,7 @@ describe("Unit-tests for the Staking contract", () => {
                 await expect(
                     env.stakingContract
                         .connect(env.alice)
-                        [
-                            "relock(uint256,uint256)"
-                        ](1, newLockDuration),
+                        ["relock(uint256,uint256)"](1, newLockDuration),
                 )
                     .revertedWithCustomError(
                         env.stakingContract,
@@ -725,9 +723,7 @@ describe("Unit-tests for the Staking contract", () => {
                 await expect(
                     env.stakingContract
                         .connect(env.alice)
-                        [
-                            "relock(uint256,uint256)"
-                        ](1, newLockDuration),
+                        ["relock(uint256,uint256)"](1, newLockDuration),
                 )
                     .revertedWithCustomError(
                         env.stakingContract,
@@ -749,9 +745,7 @@ describe("Unit-tests for the Staking contract", () => {
                 await expect(
                     env.stakingContract
                         .connect(env.alice)
-                        [
-                            "relock(uint256,uint256)"
-                        ](1, newLockDuration),
+                        ["relock(uint256,uint256)"](1, newLockDuration),
                 ).revertedWithCustomError(env.stakingContract, "EnforcedPause");
             });
         });

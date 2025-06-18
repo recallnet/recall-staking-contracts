@@ -57,7 +57,6 @@ export async function getDefaultNetworkConfig(
         staking: {
             stakeToken: "0x5B46363bb89D850E5da271363274e19F9392488D",
         },
-
     };
 
     return defaultNetworkConfig;

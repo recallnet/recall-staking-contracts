@@ -6,7 +6,6 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {INftReceipt} from "./INftReceipt.sol";
 
 interface IStaking {
-
     /* STRUCTS */
 
     /**
@@ -87,19 +86,19 @@ interface IStaking {
      * @param allowed The allowed status.
      */
     event UpdateAllowedDuration(uint256 duration, bool allowed);
-    
+
     /**
      * @notice Emitted when the min stake amount is updated.
      * @param newMinStakeAmount The new min stake amount.
      */
     event UpdateMinStakeAmount(uint256 newMinStakeAmount);
-    
+
     /**
      * @notice Emitted when the withdraw cooldown period is updated.
      * @param newWithdrawCooldown The new withdraw cooldown period.
      */
     event UpdateWithdrawCooldown(uint256 newWithdrawCooldown);
-    
+
     /**
      * @notice Emitted when emergency unlock is called.
      */
@@ -109,16 +108,16 @@ interface IStaking {
 
     /// @notice Reverts if an operation is attempted with a zero address where a valid address is expected.
     error ZeroAddress();
-    
+
     /// @notice Reverts if an operation is attempted with non-allowed amount.
     error NotAllowedAmount(uint256 amount);
 
     /// @notice Reverts if an operation is attempted with a duration that is not allowed.
     error NotAllowedDuration(uint256 duration);
-    
+
     /// @notice Reverts if an operation is attempted with an amount that is too early for unstake. (Lockup period has not passed yet)
     error TooEarlyForUnstake();
-    
+
     /// @notice Reverts if an operation is attempted with an amount that is too early for relock. (Lockup period has not passed yet)
     error TooEarlyForRelock();
 
@@ -136,7 +135,7 @@ interface IStaking {
 
     /// @notice Reverts if admin attempts to set withdraw cooldown period to a value greater than the maximum.
     error MaxWithdrawCooldown();
-    
+
     /// @notice Reverts if the operation cannot be performed because the contract is unlocked.
     error Unlocked();
 
@@ -254,7 +253,7 @@ interface IStaking {
 
     /**
      * @notice Partially relocks the stake: splits existing stake into two
-     * @dev Decreases the amount of the existing stake and creates a new stake 
+     * @dev Decreases the amount of the existing stake and creates a new stake
      *      with specified amount and duration. The original stake must be unlocked
      *      (passed lockupTime) and not yet unstaked.
      * @param tokenId The id of the existing stake to partially relock
@@ -315,7 +314,6 @@ interface IStaking {
      * @return The `StakeInfo` struct containing details for the specified stake.
      */
     function stakeInfo(uint256 tokenId) external view returns (StakeInfo memory);
-
 
     /* ADMIN FUNCTIONS */
 

@@ -11,9 +11,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
     const networkConfig = await getConfig(hre);
 
-
     const nftReceiptData = await get("NftReceiptProxy");
-
 
     const stakingContract = await ethers.getContractAt(
         "Staking",
@@ -31,16 +29,9 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     console.log("NftReceipt", nftReceiptData.address);
     console.log("Default admin", deployer);
 
-
-    await deployProxy(
-        hre,
-        "Staking",
-        [],
-        initializeData,
-    );
+    await deployProxy(hre, "Staking", [], initializeData);
 
     const stakingData = await get("StakingProxy");
-
 
     const nftReceiptContract = await ethers.getContractAt(
         "NftReceipt",
@@ -50,9 +41,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
     if (stakingAddress != stakingData.address) {
         if (hre.network.name !== "hardhat") {
-            console.log(
-                "Setting Staking for the NftReceipt contract...",
-            );
+            console.log("Setting Staking for the NftReceipt contract...");
         }
 
         const tx = await nftReceiptContract.setStaking(stakingData.address);

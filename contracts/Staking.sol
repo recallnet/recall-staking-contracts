@@ -327,7 +327,6 @@ contract Staking is
         return _stakeInfo[tokenId];
     }
 
-
     /* ADMIN FUNCTIONS */
 
     /// @inheritdoc IStaking

@@ -16,19 +16,12 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
         ethers.ZeroAddress,
     );
     const initializeData = (
-        await nftReceiptContract.initialize.populateTransaction(
-            deployer,
-        )
+        await nftReceiptContract.initialize.populateTransaction(deployer)
     ).data;
 
     console.log("Default admin", deployer);
 
-    await deployProxy(
-        hre,
-        "NftReceipt",
-        [ ],
-        initializeData,
-    );
+    await deployProxy(hre, "NftReceipt", [], initializeData);
 };
 export default func;
 func.tags = ["NftReceipt"];
