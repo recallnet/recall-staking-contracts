@@ -32,7 +32,7 @@ const hardhatConfig: HardhatUserConfig | HardhatWithNetworkTypes = {
             accounts: envConfig.accounts.testnetAccounts,
         },
         baseSepolia: {
-            url: "https://sepolia.base.org",
+            url: "https://base-sepolia.infura.io/v3/" + envConfig.apis.infura!,
             accounts: envConfig.accounts.testnetAccounts,
         },
         bscTestnet: {

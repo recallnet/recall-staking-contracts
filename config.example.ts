@@ -22,5 +22,14 @@ export const envConfig: EnvConfigInterface = {
         coinmarketcap: "abcd1234...",
     },
 
-    deploy: {},
+    deploy: {
+        baseSepolia: {
+            waitConfirmations: 3,
+
+            staking: {
+                stakeToken: "0x5B46363bb89D850E5da271363274e19F9392488D"
+            }
+        }
+
+    },
 };
