@@ -252,6 +252,16 @@ interface IStaking {
     function stake(uint256 amount, uint256 duration) external returns (uint256);
 
     /**
+     * @notice Deposits tokens into contract and creates new stake for `user` (stakes on behalf of user)
+     * @dev The `amount` must be approved before deposit by the caller
+     * @param user The address of the user - beneficiary of the stake
+     * @param amount The amount to stake
+     * @param duration The duration of the stake in seconds
+     * @return The id of the new stake
+     */
+    function stake(address user, uint256 amount, uint256 duration) external returns (uint256);
+
+    /**
      * @notice Partially relocks the stake: splits existing stake into two
      * @dev Decreases the amount of the existing stake and creates a new stake
      *      with specified amount and duration. The original stake must be unlocked

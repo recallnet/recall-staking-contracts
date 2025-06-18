@@ -116,30 +116,44 @@ contract Staking is
         stakeToken = IERC20(_stakeToken);
         nftReceipt = INftReceipt(_nftReceipt);
 
-        allowedDurations[30 days] = true;
-        allowedDurations[60 days] = true;
-        allowedDurations[90 days] = true;
+        // set up initial values
+        _setAllowedDuration(90 days, true);
+        _setAllowedDuration(180 days, true);
+        _setAllowedDuration(270 days, true);
+        _setAllowedDuration(365 days, true);
 
         withdrawCooldown = 30 days;
+        emit UpdateWithdrawCooldown(30 days);
     }
 
     /* EXTERNAL USER FUNCTIONS */
 
     /// @inheritdoc IStaking
-    function stake(
+    function stake(uint256 amount, uint256 duration) external returns (uint256) {
+        return _stake(msg.sender, amount, duration);
+    }
+
+    /// @inheritdoc IStaking
+    function stake(address user, uint256 amount, uint256 duration) external returns (uint256) {
+        return _stake(user, amount, duration);
+    }
+
+    /// @dev Stakes tokens for a `user`
+    function _stake(
+        address user,
         uint256 amount,
         uint256 duration
-    ) public whenNotPaused nonReentrant returns (uint256) {
+    ) internal whenNotPaused nonReentrant returns (uint256) {
         if (!allowedDurations[duration]) revert NotAllowedDuration(duration);
         if (amount == 0 || amount < minStakeAmount) revert NotAllowedAmount(amount);
 
         uint256 newTokenId = ++lastId;
 
-        totalUserStaked[msg.sender] += amount;
+        totalUserStaked[user] += amount;
         totalStaked += amount;
 
         uint256 lockupEndTime = block.timestamp + duration;
-        _tokenIds[msg.sender].add(newTokenId);
+        _tokenIds[user].add(newTokenId);
         _stakeInfo[newTokenId] = StakeInfo(
             uint256(amount),
             uint64(block.timestamp),
@@ -147,10 +161,10 @@ contract Staking is
             0
         );
 
-        nftReceipt.mint(msg.sender, newTokenId);
+        nftReceipt.mint(user, newTokenId);
         stakeToken.safeTransferFrom(msg.sender, address(this), amount);
 
-        emit Stake(msg.sender, newTokenId, amount, block.timestamp, lockupEndTime);
+        emit Stake(user, newTokenId, amount, block.timestamp, lockupEndTime);
         return newTokenId;
     }
 
@@ -237,7 +251,7 @@ contract Staking is
     function unstake(
         uint256 tokenId,
         uint256 amountToUnstake
-    ) public whenNotPaused nonReentrant returns (uint256) {
+    ) external whenNotPaused nonReentrant returns (uint256) {
         StakeInfo storage userOldStake = _stakeInfo[tokenId];
         if (block.timestamp < userOldStake.lockupEndTime) revert TooEarlyForUnstake();
         if (userOldStake.withdrawAllowedTime != 0) revert AlreadyUnstaked();
@@ -284,7 +298,7 @@ contract Staking is
     }
 
     /// @inheritdoc IStaking
-    function withdraw(uint256 tokenId) public nonReentrant {
+    function withdraw(uint256 tokenId) external nonReentrant {
         StakeInfo memory userStake = _stakeInfo[tokenId];
 
         if (!unlockedAll) {
@@ -334,6 +348,11 @@ contract Staking is
         uint256 _duration,
         bool _allowed
     ) external onlyRole(CONTRACT_MANAGER_ROLE) {
+        _setAllowedDuration(_duration, _allowed);
+    }
+
+    /// @dev Sets new allowed duration (or disables existing one)
+    function _setAllowedDuration(uint256 _duration, bool _allowed) internal {
         allowedDurations[_duration] = _allowed;
         emit UpdateAllowedDuration(_duration, _allowed);
     }
