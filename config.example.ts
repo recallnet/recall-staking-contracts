@@ -2,8 +2,12 @@ import { EnvConfigInterface } from "./types";
 
 export const envConfig: EnvConfigInterface = {
     accounts: {
+        // REPLACE with your private key
         testnetAccounts: ["private key"],
-        mainnetAccounts: ["private key"],
+        // REPLACE with your private key
+        mainnetAccounts: [
+            "1111111111111111111122222222222222222223333333333333333344444444",
+        ],
     },
 
     apis: {
@@ -28,6 +32,14 @@ export const envConfig: EnvConfigInterface = {
 
             staking: {
                 stakeToken: "0x5B46363bb89D850E5da271363274e19F9392488D",
+            },
+        },
+
+        base: {
+            waitConfirmations: 3,
+
+            staking: {
+                stakeToken: "0x0000000000000000000000000000000000000000",
             },
         },
     },

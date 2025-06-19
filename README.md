@@ -34,3 +34,16 @@ npx hardhat coverage
 ```sh
 npx hardhat deploy --network <network_name>
 ```
+
+network_name can be `sepolia`, `baseSepolia`, `base`.
+
+### Assigning roles
+
+The contracts roles are assigned in the deployment script (`deploy/04_deploy_AssignRoles.ts`, see L30-L33, L73-76).  
+The script is executed automatically during the deployment. Before starting the deployment, you need to set the addresses of the admins for the contracts.
+
+In case you want to assign admins later, you can run the script manually:
+
+```sh
+npx hardhat deploy --tags Roles --network <network_name>
+```

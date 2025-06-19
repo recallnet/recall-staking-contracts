@@ -35,9 +35,9 @@ const hardhatConfig: HardhatUserConfig | HardhatWithNetworkTypes = {
             url: "https://base-sepolia.infura.io/v3/" + envConfig.apis.infura!,
             accounts: envConfig.accounts.testnetAccounts,
         },
-        bscTestnet: {
-            url: "https://bsc-testnet-dataseed.bnbchain.org",
-            accounts: envConfig.accounts.testnetAccounts,
+        base: {
+            url: "https://base-mainnet.infura.io/v3/" + envConfig.apis.infura!,
+            accounts: envConfig.accounts.mainnetAccounts,
         },
     },
     solidity: {
