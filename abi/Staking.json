@@ -352,6 +352,12 @@
         "internalType": "uint256",
         "name": "amountToUnstake",
         "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "withdrawAllowedTime",
+        "type": "uint64"
       }
     ],
     "name": "Unstake",
