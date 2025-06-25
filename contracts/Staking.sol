@@ -274,7 +274,7 @@ contract Staking is
         );
         nftReceipt.mint(msg.sender, newTokenId);
 
-        emit Unstake(msg.sender, tokenId, amountToUnstake);
+        emit Unstake(msg.sender, tokenId, amountToUnstake, userOldStake.withdrawAllowedTime);
         emit Stake(
             msg.sender,
             newTokenId,
@@ -294,7 +294,7 @@ contract Staking is
 
         userStake.withdrawAllowedTime = uint64(block.timestamp + withdrawCooldown);
 
-        emit Unstake(msg.sender, tokenId, userStake.amount);
+        emit Unstake(msg.sender, tokenId, userStake.amount, userStake.withdrawAllowedTime);
     }
 
     /// @inheritdoc IStaking

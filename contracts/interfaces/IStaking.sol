@@ -69,8 +69,9 @@ interface IStaking {
      * @param staker The address of the staker.
      * @param tokenId The id of the stake.
      * @param amountToUnstake The amount of tokens unstaked.
+     * @param withdrawAllowedTime When the withdrawal is allowed.
      */
-    event Unstake(address indexed staker, uint256 tokenId, uint256 amountToUnstake);
+    event Unstake(address indexed staker, uint256 tokenId, uint256 amountToUnstake, uint64 withdrawAllowedTime);
 
     /**
      * @notice Emitted when a stake is withdrawn.
