@@ -303,9 +303,12 @@ contract Staking is
 
     /// @inheritdoc IStaking
     function withdraw(uint256 tokenId) external nonReentrant {
+        bool _unlockedAll = unlockedAll;
+        if (paused() && !_unlockedAll) revert EnforcedPause();
+
         StakeInfo memory userStake = _stakeInfo[tokenId];
 
-        if (!unlockedAll) {
+        if (!_unlockedAll) {
             if (
                 block.timestamp < userStake.withdrawAllowedTime ||
                 userStake.withdrawAllowedTime == 0

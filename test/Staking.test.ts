@@ -1260,6 +1260,18 @@ describe("Unit-tests for the Staking contract", () => {
                     )
                     .withArgs();
             });
+
+            it("In case of paused contract", async () => {
+                const env = await loadFixture(prepareEnvWithUnstakedStakes);
+                await env.stakingContract.connect(env.pauserAdmin).pause();
+
+                await expect(env.stakingContract.connect(env.alice).withdraw(1))
+                    .revertedWithCustomError(
+                        env.stakingContract,
+                        "EnforcedPause",
+                    )
+                    .withArgs();
+            });
         });
     });
 
