@@ -1230,9 +1230,9 @@ describe("Unit-tests for the Staking contract", () => {
                 )
                     .revertedWithCustomError(
                         env.stakingContract,
-                        "NotStakeOwner",
+                        "NotUnstakedYet",
                     )
-                    .withArgs(tokenId);
+                    .withArgs();
             });
         });
     });
