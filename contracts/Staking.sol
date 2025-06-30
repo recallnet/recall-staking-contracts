@@ -175,11 +175,15 @@ contract Staking is
         uint256 newLockAmount
     ) external whenNotPaused nonReentrant returns (uint256) {
         if (!allowedDurations[newLockDuration]) revert NotAllowedDuration(newLockDuration);
-        if (newLockAmount == 0 || newLockAmount < minStakeAmount)
-            revert NotAllowedAmount(newLockAmount);
-        if (!_tokenIds[msg.sender].contains(tokenId)) revert NotStakeOwner(tokenId);
 
         StakeInfo storage userOldStake = _stakeInfo[tokenId];
+        if (
+            newLockAmount == 0 ||
+            newLockAmount < minStakeAmount ||
+            newLockAmount >= userOldStake.amount
+        ) revert NotAllowedAmount(newLockAmount);
+        if (!_tokenIds[msg.sender].contains(tokenId)) revert NotStakeOwner(tokenId);
+
         if (userOldStake.withdrawAllowedTime != 0) revert AlreadyUnstaked();
         if (block.timestamp < userOldStake.lockupEndTime) revert TooEarlyForRelock();
 

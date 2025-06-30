@@ -556,6 +556,32 @@ describe("Unit-tests for the Staking contract", () => {
                         "NotAllowedAmount",
                     )
                     .withArgs(0);
+
+                await expect(
+                    env.stakingContract
+                        .connect(env.alice)
+                        [
+                            "relock(uint256,uint256,uint256)"
+                        ](tokenId, newLockDuration, env.aliceBalance),
+                )
+                    .revertedWithCustomError(
+                        env.stakingContract,
+                        "NotAllowedAmount",
+                    )
+                    .withArgs(env.aliceBalance);
+
+                await expect(
+                    env.stakingContract
+                        .connect(env.alice)
+                        [
+                            "relock(uint256,uint256,uint256)"
+                        ](tokenId, newLockDuration, env.aliceBalance + 1n),
+                )
+                    .revertedWithCustomError(
+                        env.stakingContract,
+                        "NotAllowedAmount",
+                    )
+                    .withArgs(env.aliceBalance + 1n);
             });
 
             it("In case of not stake owner", async () => {
