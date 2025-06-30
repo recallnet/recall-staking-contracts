@@ -303,8 +303,8 @@ contract Staking is
 
         if (!unlockedAll) {
             if (block.timestamp < userStake.withdrawAllowedTime) revert NotUnstakedYet();
-            if (!_tokenIds[msg.sender].remove(tokenId)) revert NotStakeOwner(tokenId);
         }
+        if (!_tokenIds[msg.sender].remove(tokenId)) revert NotStakeOwner(tokenId);
 
         delete _stakeInfo[tokenId];
 
