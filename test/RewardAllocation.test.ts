@@ -1134,6 +1134,50 @@ describe("Unit-tests for the RewardAllocation contract", () => {
             ).equals(0);
         });
 
+        it("Token is already emergency withdrawn", async () => {
+            const env = await loadFixture(prepareEnvWithAllocation);
+
+            await env.rewardAllocationContract.connect(env.pauser).pause();
+
+            await env.rewardAllocationContract
+                .connect(env.fundsManager)
+                .emergencyWithdraw(env.allocationToken, env.alice.address);
+
+            const balance = await env.allocationToken.balanceOf(env.alice);
+            await env.allocationToken
+                .connect(env.alice)
+                .transfer(env.rewardAllocationContract, balance);
+
+            await expect(
+                env.rewardAllocationContract
+                    .connect(env.fundsManager)
+                    .emergencyWithdraw(env.allocationToken, env.alice.address),
+            )
+                .emit(env.rewardAllocationContract, "TokensEmergencyWithdrawn")
+                .withArgs(env.allocationToken, env.alice, balance);
+
+            expect(await env.allocationToken.balanceOf(env.alice)).equals(
+                balance,
+            );
+            expect(
+                await env.allocationToken.balanceOf(
+                    env.rewardAllocationContract,
+                ),
+            ).equals(0);
+
+            expect(
+                await env.rewardAllocationContract.isTokenEmergencyWithdrawn(
+                    env.allocationToken,
+                ),
+            ).true;
+
+            expect(
+                await env.rewardAllocationContract.totalOverallClaimableAmountPerToken(
+                    env.allocationToken,
+                ),
+            ).equals(0);
+        });
+
         describe("Reverts", () => {
             it("Not paused", async () => {
                 const env = await loadFixture(prepareEnv);
@@ -1175,30 +1219,6 @@ describe("Unit-tests for the RewardAllocation contract", () => {
                     env.rewardAllocationContract,
                     "RewardAllocation__ZeroAddress",
                 );
-            });
-
-            it("Token is already emergency withdrawn", async () => {
-                const env = await loadFixture(prepareEnvWithAllocation);
-
-                await env.rewardAllocationContract.connect(env.pauser).pause();
-
-                await env.rewardAllocationContract
-                    .connect(env.fundsManager)
-                    .emergencyWithdraw(env.allocationToken, env.alice.address);
-
-                await expect(
-                    env.rewardAllocationContract
-                        .connect(env.fundsManager)
-                        .emergencyWithdraw(
-                            env.allocationToken,
-                            env.alice.address,
-                        ),
-                )
-                    .revertedWithCustomError(
-                        env.rewardAllocationContract,
-                        "RewardAllocation__ThisTokenIsEmergencyWithdrawn",
-                    )
-                    .withArgs(env.allocationToken);
             });
 
             it("Wrong caller", async () => {
