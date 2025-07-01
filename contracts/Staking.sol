@@ -302,7 +302,10 @@ contract Staking is
         StakeInfo memory userStake = _stakeInfo[tokenId];
 
         if (!unlockedAll) {
-            if (block.timestamp < userStake.withdrawAllowedTime) revert NotUnstakedYet();
+            if (
+                block.timestamp < userStake.withdrawAllowedTime ||
+                userStake.withdrawAllowedTime == 0
+            ) revert NotUnstakedYet();
         }
         if (!_tokenIds[msg.sender].remove(tokenId)) revert NotStakeOwner(tokenId);
 
