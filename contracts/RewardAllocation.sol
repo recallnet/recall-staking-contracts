@@ -284,9 +284,6 @@ contract RewardAllocation is
         if (to == address(0)) {
             revert RewardAllocation__ZeroAddress();
         }
-        if (isTokenEmergencyWithdrawn[token]) {
-            revert RewardAllocation__ThisTokenIsEmergencyWithdrawn(token);
-        }
 
         uint256 tokenBalance = IERC20(token).balanceOf(address(this));
         if (tokenBalance == 0) {
