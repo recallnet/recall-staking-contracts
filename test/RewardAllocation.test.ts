@@ -128,6 +128,12 @@ describe("Unit-tests for the RewardAllocation contract", () => {
                     env.alice,
                 ),
             ).true;
+            expect(
+                await env.rewardAllocationContract.hasClaimedLeaf(
+                    env.allocationRoot,
+                    env.aliceLeaf,
+                ),
+            ).true;
 
             expect(
                 await env.rewardAllocationContract.totalOverallClaimableAmountPerToken(
@@ -176,6 +182,12 @@ describe("Unit-tests for the RewardAllocation contract", () => {
                     env.bob,
                 ),
             ).true;
+            expect(
+                await env.rewardAllocationContract.hasClaimedLeaf(
+                    env.allocationRoot,
+                    env.bobLeaf,
+                ),
+            ).true;
 
             expect(
                 await env.rewardAllocationContract.totalOverallClaimableAmountPerToken(
@@ -198,6 +210,78 @@ describe("Unit-tests for the RewardAllocation contract", () => {
                 env.totalAllocationAmount -
                     env.aliceAllocationAmount -
                     env.bobAllocationAmount,
+            );
+        });
+
+        it("Claim the same user, but different leafs", async () => {
+            const env = await loadFixture(prepareEnvWithAllocation);
+
+            await time.increaseTo(env.allocationStartTimestamp);
+
+            await env.rewardAllocationContract
+                .connect(env.alice)
+                .claim(
+                    env.allocationRoot,
+                    env.aliceAllocationAmount,
+                    env.aliceProof,
+                );
+
+            await expect(
+                env.rewardAllocationContract
+                    .connect(env.alice)
+                    .claim(
+                        env.allocationRoot,
+                        env.aliceAllocationAmount2,
+                        env.aliceProof2,
+                    ),
+            )
+                .emit(env.rewardAllocationContract, "RewardClaimed")
+                .withArgs(
+                    env.allocationRoot,
+                    env.alice,
+                    env.aliceAllocationAmount2,
+                );
+
+            expect(
+                await env.rewardAllocationContract.hasClaimed(
+                    env.allocationRoot,
+                    env.alice,
+                ),
+            ).true;
+            expect(
+                await env.rewardAllocationContract.hasClaimedLeaf(
+                    env.allocationRoot,
+                    env.aliceLeaf,
+                ),
+            ).true;
+            expect(
+                await env.rewardAllocationContract.hasClaimedLeaf(
+                    env.allocationRoot,
+                    env.aliceLeaf2,
+                ),
+            ).true;
+
+            expect(
+                await env.rewardAllocationContract.totalOverallClaimableAmountPerToken(
+                    env.allocationToken,
+                ),
+            ).equals(
+                env.totalAllocationAmount -
+                    env.aliceAllocationAmount -
+                    env.aliceAllocationAmount2,
+            );
+
+            expect(await env.allocationToken.balanceOf(env.alice)).equals(
+                env.aliceAllocationAmount + env.aliceAllocationAmount2,
+            );
+            expect(
+                await env.allocationToken.balanceOf(
+                    env.rewardAllocationContract,
+                ),
+            ).equals(
+                env.totalAllocationAmount -
+                    env.aliceAllocationAmount -
+                    env.aliceAllocationAmount2,
             );
         });
 
@@ -282,7 +366,7 @@ describe("Unit-tests for the RewardAllocation contract", () => {
                     );
             });
 
-            it("Double claim", async () => {
+            it("Double claim the same leaf", async () => {
                 const env = await loadFixture(prepareEnvWithAllocation);
 
                 await time.increaseTo(env.allocationStartTimestamp);
@@ -308,7 +392,12 @@ describe("Unit-tests for the RewardAllocation contract", () => {
                         env.rewardAllocationContract,
                         "RewardAllocation__RewardAlreadyClaimedForThisAllocation",
                     )
-                    .withArgs(env.allocationRoot, env.alice);
+                    .withArgs(
+                        env.allocationRoot,
+                        env.alice,
+                        env.aliceAllocationAmount,
+                        env.aliceLeaf,
+                    );
             });
 
             it("Invalid merkle proof", async () => {
@@ -1155,14 +1244,19 @@ async function prepareEnvWithAllocationParameters() {
     const allocationToken = env.token1;
 
     const aliceAllocationAmount = ethers.WeiPerEther;
+    const aliceAllocationAmount2 = aliceAllocationAmount * 4n;
     const bobAllocationAmount = ethers.WeiPerEther * 3n;
     const carolAllocationAmount = ethers.WeiPerEther / 2n;
 
     const totalAllocationAmount =
-        aliceAllocationAmount + bobAllocationAmount + carolAllocationAmount;
+        aliceAllocationAmount +
+        aliceAllocationAmount2 +
+        bobAllocationAmount +
+        carolAllocationAmount;
 
     const values = [
         ["rl", env.alice.address, aliceAllocationAmount],
+        ["rl", env.alice.address, aliceAllocationAmount2],
         ["rl", env.bob.address, bobAllocationAmount],
         ["rl", env.carol.address, carolAllocationAmount],
     ].map((value) => {
@@ -1175,8 +1269,14 @@ async function prepareEnvWithAllocationParameters() {
     const tree = SimpleMerkleTree.of(values);
 
     const aliceProof = tree.getProof(0);
-    const bobProof = tree.getProof(1);
-    const carolProof = tree.getProof(2);
+    const aliceProof2 = tree.getProof(1);
+    const bobProof = tree.getProof(2);
+    const carolProof = tree.getProof(3);
+
+    const aliceLeaf = values[0];
+    const aliceLeaf2 = values[1];
+    const bobLeaf = values[2];
+    const carolLeaf = values[3];
 
     const allocationStartTimestamp = (await time.latest()) + DAY_SEC;
 
@@ -1191,6 +1291,7 @@ async function prepareEnvWithAllocationParameters() {
         ...env,
 
         aliceAllocationAmount,
+        aliceAllocationAmount2,
         bobAllocationAmount,
         carolAllocationAmount,
 
@@ -1202,8 +1303,14 @@ async function prepareEnvWithAllocationParameters() {
         allocationStartTimestamp,
 
         aliceProof,
+        aliceProof2,
         bobProof,
         carolProof,
+
+        aliceLeaf,
+        aliceLeaf2,
+        bobLeaf,
+        carolLeaf,
     };
 }
 
