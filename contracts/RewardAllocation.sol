@@ -49,6 +49,9 @@ contract RewardAllocation is
     mapping(bytes32 root => mapping(address user => bool)) public override hasClaimed;
 
     /// @inheritdoc IRewardAllocation
+    mapping(bytes32 root => mapping(bytes32 leaf => bool)) public override hasClaimedLeaf;
+
+    /// @inheritdoc IRewardAllocation
     mapping(address token => uint256) public override totalOverallClaimableAmountPerToken;
 
     /// @inheritdoc IRewardAllocation
@@ -114,14 +117,16 @@ contract RewardAllocation is
                 blockTimestamp: block.timestamp
             });
         }
-        if (hasClaimed[root][msg.sender]) {
-            revert RewardAllocation__RewardAlreadyClaimedForThisAllocation({
-                root: root,
-                user: msg.sender
-            });
-        }
 
         bytes32 leaf = keccak256(abi.encodePacked("rl", msg.sender, claimAmount));
+        if (hasClaimedLeaf[root][leaf]) {
+            revert RewardAllocation__RewardAlreadyClaimedForThisAllocation({
+                root: root,
+                user: msg.sender,
+                claimAmount: claimAmount,
+                leaf: leaf
+            });
+        }
 
         if (!MerkleProof.verify({proof: proof, root: root, leaf: leaf})) {
             revert RewardAllocation__InvalidMerkleProof({root: root, leaf: leaf, proof: proof});
@@ -137,6 +142,7 @@ contract RewardAllocation is
         }
 
         hasClaimed[root][msg.sender] = true;
+        hasClaimedLeaf[root][leaf] = true;
         totalOverallClaimableAmountPerToken[token] -= claimAmount;
 
         IERC20(token).safeTransfer(msg.sender, claimAmount);
@@ -277,9 +283,6 @@ contract RewardAllocation is
         }
         if (to == address(0)) {
             revert RewardAllocation__ZeroAddress();
-        }
-        if (isTokenEmergencyWithdrawn[token]) {
-            revert RewardAllocation__ThisTokenIsEmergencyWithdrawn(token);
         }
 
         uint256 tokenBalance = IERC20(token).balanceOf(address(this));

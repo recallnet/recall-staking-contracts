@@ -556,6 +556,32 @@ describe("Unit-tests for the Staking contract", () => {
                         "NotAllowedAmount",
                     )
                     .withArgs(0);
+
+                await expect(
+                    env.stakingContract
+                        .connect(env.alice)
+                        [
+                            "relock(uint256,uint256,uint256)"
+                        ](tokenId, newLockDuration, env.aliceBalance),
+                )
+                    .revertedWithCustomError(
+                        env.stakingContract,
+                        "NotAllowedAmount",
+                    )
+                    .withArgs(env.aliceBalance);
+
+                await expect(
+                    env.stakingContract
+                        .connect(env.alice)
+                        [
+                            "relock(uint256,uint256,uint256)"
+                        ](tokenId, newLockDuration, env.aliceBalance + 1n),
+                )
+                    .revertedWithCustomError(
+                        env.stakingContract,
+                        "NotAllowedAmount",
+                    )
+                    .withArgs(env.aliceBalance + 1n);
             });
 
             it("In case of not stake owner", async () => {
@@ -1232,9 +1258,21 @@ describe("Unit-tests for the Staking contract", () => {
                 )
                     .revertedWithCustomError(
                         env.stakingContract,
-                        "NotStakeOwner",
+                        "NotUnstakedYet",
                     )
-                    .withArgs(tokenId);
+                    .withArgs();
+            });
+
+            it("In case of paused contract", async () => {
+                const env = await loadFixture(prepareEnvWithUnstakedStakes);
+                await env.stakingContract.connect(env.pauserAdmin).pause();
+
+                await expect(env.stakingContract.connect(env.alice).withdraw(1))
+                    .revertedWithCustomError(
+                        env.stakingContract,
+                        "EnforcedPause",
+                    )
+                    .withArgs();
             });
         });
     });
@@ -1533,6 +1571,35 @@ describe("Unit-tests for the Staking contract", () => {
                         "ExpectedPause",
                     )
                     .withArgs();
+            });
+
+            it("In case of non-stake owner", async () => {
+                const env = await loadFixture(prepareEnvWithStakes);
+                await env.stakingContract.connect(env.pauserAdmin).pause();
+                await env.stakingContract
+                    .connect(env.emergencyAdmin)
+                    .emergencyUnlock();
+
+                await expect(env.stakingContract.connect(env.carol).withdraw(1))
+                    .revertedWithCustomError(
+                        env.stakingContract,
+                        "NotStakeOwner",
+                    )
+                    .withArgs(1);
+
+                await expect(env.stakingContract.connect(env.carol).withdraw(2))
+                    .revertedWithCustomError(
+                        env.stakingContract,
+                        "NotStakeOwner",
+                    )
+                    .withArgs(2);
+
+                await expect(env.stakingContract.connect(env.carol).withdraw(3))
+                    .revertedWithCustomError(
+                        env.stakingContract,
+                        "NotStakeOwner",
+                    )
+                    .withArgs(3);
             });
         });
     });

@@ -147,11 +147,18 @@ interface IRewardAllocation is IAccessControlEnumerable {
     );
 
     /**
-     * @notice Reverts if a user attempts to claim a reward from an allocation they have already claimed from.
+     * @notice Reverts if a user attempts to claim a reward for a specific leaf that has already been claimed.
      * @param root The Merkle root of the allocation.
-     * @param user The address of the user.
+     * @param user The address of the user attempting the claim.
+     * @param claimAmount The amount of the claim.
+     * @param leaf The Merkle leaf corresponding to the claim, which has already been processed.
      */
-    error RewardAllocation__RewardAlreadyClaimedForThisAllocation(bytes32 root, address user);
+    error RewardAllocation__RewardAlreadyClaimedForThisAllocation(
+        bytes32 root,
+        address user,
+        uint256 claimAmount,
+        bytes32 leaf
+    );
 
     /**
      * @notice Reverts if the provided Merkle proof is invalid for the given root and leaf.
@@ -177,18 +184,27 @@ interface IRewardAllocation is IAccessControlEnumerable {
     /* PUBLIC VARIABLES */
 
     /**
-     * @notice Checks if a user has already claimed their reward for a specific allocation.
+     * @notice Checks if a user has claimed at least one reward for a specific allocation.
+     * @dev This does not mean the user cannot claim other rewards from the same allocation if multiple leaves are assigned to them.
      * @param root The Merkle root of the allocation.
      * @param user The address of the user.
-     * @return True if the user has claimed, false otherwise.
+     * @return True if the user has claimed at least one reward, false otherwise.
      */
     function hasClaimed(bytes32 root, address user) external view returns (bool);
 
     /**
-     * @notice Returns the total amount of a specific token that is currently committed to active allocations
-     * (i.e., allocated amount minus already claimed amounts for all roots of that token).
+     * @notice Checks if a specific reward leaf has been claimed for a given allocation.
+     * @param root The Merkle root of the allocation.
+     * @param leaf The Merkle leaf, which represents a specific claim.
+     * @return True if the leaf has been claimed, false otherwise.
+     */
+    function hasClaimedLeaf(bytes32 root, bytes32 leaf) external view returns (bool);
+
+    /**
+     * @notice Returns the total amount of a specific token that is currently committed to all active allocations.
+     * @dev This is the sum of all allocated amounts for a token, minus any amounts that have been claimed or uncommitted through cancellation.
      * @param token The address of the ERC20 token.
-     * @return The total claimable amount for the token across all allocations.
+     * @return The total amount of the token committed to active allocations.
      */
     function totalOverallClaimableAmountPerToken(address token) external view returns (uint256);
 
