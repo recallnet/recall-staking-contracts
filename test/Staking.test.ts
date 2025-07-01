@@ -1532,6 +1532,35 @@ describe("Unit-tests for the Staking contract", () => {
                     )
                     .withArgs();
             });
+
+            it("In case of non-stake owner", async () => {
+                const env = await loadFixture(prepareEnvWithStakes);
+                await env.stakingContract.connect(env.pauserAdmin).pause();
+                await env.stakingContract
+                    .connect(env.emergencyAdmin)
+                    .emergencyUnlock();
+
+                await expect(env.stakingContract.connect(env.carol).withdraw(1))
+                    .revertedWithCustomError(
+                        env.stakingContract,
+                        "NotStakeOwner",
+                    )
+                    .withArgs(1);
+
+                await expect(env.stakingContract.connect(env.carol).withdraw(2))
+                    .revertedWithCustomError(
+                        env.stakingContract,
+                        "NotStakeOwner",
+                    )
+                    .withArgs(2);
+
+                await expect(env.stakingContract.connect(env.carol).withdraw(3))
+                    .revertedWithCustomError(
+                        env.stakingContract,
+                        "NotStakeOwner",
+                    )
+                    .withArgs(3);
+            });
         });
     });
 
