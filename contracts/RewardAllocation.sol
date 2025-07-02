@@ -46,9 +46,6 @@ contract RewardAllocation is
     bytes32 public constant override UNPAUSER_ROLE = keccak256("UNPAUSER_ROLE");
 
     /// @inheritdoc IRewardAllocation
-    mapping(bytes32 root => mapping(address user => bool)) public override hasClaimed;
-
-    /// @inheritdoc IRewardAllocation
     mapping(bytes32 root => mapping(bytes32 leaf => bool)) public override hasClaimedLeaf;
 
     /// @inheritdoc IRewardAllocation
@@ -141,7 +138,6 @@ contract RewardAllocation is
             });
         }
 
-        hasClaimed[root][msg.sender] = true;
         hasClaimedLeaf[root][leaf] = true;
         totalOverallClaimableAmountPerToken[token] -= claimAmount;
 
