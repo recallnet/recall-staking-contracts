@@ -184,15 +184,6 @@ interface IRewardAllocation is IAccessControlEnumerable {
     /* PUBLIC VARIABLES */
 
     /**
-     * @notice Checks if a user has claimed at least one reward for a specific allocation.
-     * @dev This does not mean the user cannot claim other rewards from the same allocation if multiple leaves are assigned to them.
-     * @param root The Merkle root of the allocation.
-     * @param user The address of the user.
-     * @return True if the user has claimed at least one reward, false otherwise.
-     */
-    function hasClaimed(bytes32 root, address user) external view returns (bool);
-
-    /**
      * @notice Checks if a specific reward leaf has been claimed for a given allocation.
      * @param root The Merkle root of the allocation.
      * @param leaf The Merkle leaf, which represents a specific claim.

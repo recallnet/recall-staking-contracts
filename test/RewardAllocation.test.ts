@@ -123,12 +123,6 @@ describe("Unit-tests for the RewardAllocation contract", () => {
                 );
 
             expect(
-                await env.rewardAllocationContract.hasClaimed(
-                    env.allocationRoot,
-                    env.alice,
-                ),
-            ).true;
-            expect(
                 await env.rewardAllocationContract.hasClaimedLeaf(
                     env.allocationRoot,
                     env.aliceLeaf,
@@ -176,12 +170,6 @@ describe("Unit-tests for the RewardAllocation contract", () => {
                 .emit(env.rewardAllocationContract, "RewardClaimed")
                 .withArgs(env.allocationRoot, env.bob, env.bobAllocationAmount);
 
-            expect(
-                await env.rewardAllocationContract.hasClaimed(
-                    env.allocationRoot,
-                    env.bob,
-                ),
-            ).true;
             expect(
                 await env.rewardAllocationContract.hasClaimedLeaf(
                     env.allocationRoot,
@@ -242,12 +230,6 @@ describe("Unit-tests for the RewardAllocation contract", () => {
                     env.aliceAllocationAmount2,
                 );
 
-            expect(
-                await env.rewardAllocationContract.hasClaimed(
-                    env.allocationRoot,
-                    env.alice,
-                ),
-            ).true;
             expect(
                 await env.rewardAllocationContract.hasClaimedLeaf(
                     env.allocationRoot,
