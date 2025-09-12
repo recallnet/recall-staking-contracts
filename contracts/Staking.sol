@@ -117,6 +117,7 @@ contract Staking is
         nftReceipt = INftReceipt(_nftReceipt);
 
         // set up initial values
+        _setAllowedDuration(30 days, true);
         _setAllowedDuration(90 days, true);
         _setAllowedDuration(180 days, true);
         _setAllowedDuration(270 days, true);
