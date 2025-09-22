@@ -70,14 +70,7 @@ const hardhatConfig: HardhatUserConfig | HardhatWithNetworkTypes = {
 
     etherscan: {
         // list networks: npx hardhat verify --list-networks
-        apiKey: {
-            sepolia: envConfig.apis.explorers.ethereumMainnet!,
-
-            baseSepolia: envConfig.apis.explorers.baseSepolia!,
-            // mainnet: "API_KEY"
-
-            bscTestnet: envConfig.apis.explorers.bscMainnet!,
-        },
+        apiKey: envConfig.apis.etherscan,
     },
 
     typechain: {

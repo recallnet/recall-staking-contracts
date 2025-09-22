@@ -12,6 +12,7 @@ export enum NETWORKS {
     polygonMainnet = "polygonMainnet",
     polygonTestnet = "polygonTestnet",
     baseSepolia = "baseSepolia",
+    base = "base",
 }
 
 export interface HardhatWithNetworkTypes {
@@ -34,6 +35,7 @@ export interface EnvConfigInterface {
 
     apis: {
         infura?: string;
+        etherscan?: string;
         explorers: {
             [network in NETWORKS]?: string;
         } & {
