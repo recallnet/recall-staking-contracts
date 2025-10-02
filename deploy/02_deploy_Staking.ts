@@ -1,6 +1,7 @@
 import { ethers } from "hardhat";
 import { DeployFunction } from "hardhat-deploy/types";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
+import { DAY_SEC } from "../constants";
 import { deployProxy, getConfig } from "../deploy-helpers";
 
 const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
@@ -38,6 +39,12 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
         nftReceiptData.address,
     );
     const stakingAddress = await nftReceiptContract.staking();
+
+    const realStakingContract = await ethers.getContractAt(
+        "Staking",
+        stakingAddress,
+    );
+    await realStakingContract.setAllowedDuration(30 * DAY_SEC, true);
 
     if (stakingAddress != stakingData.address) {
         if (hre.network.name !== "hardhat") {
