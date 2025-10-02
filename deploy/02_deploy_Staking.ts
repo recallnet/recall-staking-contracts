@@ -39,6 +39,12 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     );
     const stakingAddress = await nftReceiptContract.staking();
 
+    const realStakingContract = await ethers.getContractAt(
+        "Staking",
+        stakingAddress,
+    );
+    await realStakingContract.setAllowedDuration()
+
     if (stakingAddress != stakingData.address) {
         if (hre.network.name !== "hardhat") {
             console.log("Setting Staking for the NftReceipt contract...");
