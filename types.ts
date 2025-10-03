@@ -12,6 +12,7 @@ export enum NETWORKS {
     polygonMainnet = "polygonMainnet",
     polygonTestnet = "polygonTestnet",
     baseSepolia = "baseSepolia",
+    baseMainnet = "baseMainnet",
 }
 
 export interface HardhatWithNetworkTypes {

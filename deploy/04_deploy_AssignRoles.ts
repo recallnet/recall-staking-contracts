@@ -25,10 +25,10 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
      *  roles for staking contract
      *
      *  **************************/
-    const managerAddress = "";
-    const emergencyAddress = "";
-    const stakingPauserAddress = "";
-    const stakingUnpauserAddress = "";
+    const managerAddress = "0x05634A50F64F9be0FdEb944a6A5eC40eD1068A60";
+    const emergencyAddress = "0x9331C859E03E158Bff8Ee371c636b7e7FC54E9ad";
+    const stakingPauserAddress = "0x9331C859E03E158Bff8Ee371c636b7e7FC54E9ad";
+    const stakingUnpauserAddress = "0x05634A50F64F9be0FdEb944a6A5eC40eD1068A60";
 
     if (managerAddress) {
         await stakingContract.grantRole(
@@ -78,10 +78,10 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
      *
      *  **************************/
 
-    const rewardAllocatorAddress = "";
-    const fundsManagerAddress = "";
-    const rewardAllocationPauserAddress = "";
-    const rewardAllocationUnpauserAddress = "";
+    const rewardAllocatorAddress = "0x5291a64014b7b8D4B482Ac0de43e1Ebe5892dFF6";
+    const fundsManagerAddress = "0x05634A50F64F9be0FdEb944a6A5eC40eD1068A60";
+    const rewardAllocationPauserAddress = "0x9331C859E03E158Bff8Ee371c636b7e7FC54E9ad";
+    const rewardAllocationUnpauserAddress = "0x05634A50F64F9be0FdEb944a6A5eC40eD1068A60";
 
     if (rewardAllocatorAddress) {
         await rewardAllocationContract.grantRole(
