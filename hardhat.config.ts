@@ -3,6 +3,7 @@ import { HardhatUserConfig } from "hardhat/types";
 import "@nomicfoundation/hardhat-chai-matchers";
 import "@nomicfoundation/hardhat-ethers";
 import "@nomicfoundation/hardhat-verify";
+import "@nomicfoundation/hardhat-ledger";
 
 import "@typechain/ethers-v6";
 import "@typechain/hardhat";
@@ -27,15 +28,11 @@ const hardhatConfig: HardhatUserConfig | HardhatWithNetworkTypes = {
                 count: 50,
             },
         },
-        sepolia: {
-            url: "https://sepolia.infura.io/v3/" + envConfig.apis.infura!,
-            accounts: envConfig.accounts.testnetAccounts,
-        },
         baseSepolia: {
             url: "https://base-sepolia.infura.io/v3/" + envConfig.apis.infura!,
             accounts: envConfig.accounts.testnetAccounts,
         },
-        base: {
+        baseMainnet: {
             url: "https://base-mainnet.infura.io/v3/" + envConfig.apis.infura!,
             accounts: envConfig.accounts.mainnetAccounts,
         },
@@ -69,15 +66,7 @@ const hardhatConfig: HardhatUserConfig | HardhatWithNetworkTypes = {
     },
 
     etherscan: {
-        // list networks: npx hardhat verify --list-networks
-        apiKey: {
-            sepolia: envConfig.apis.explorers.ethereumMainnet!,
-
-            baseSepolia: envConfig.apis.explorers.baseSepolia!,
-            // mainnet: "API_KEY"
-
-            bscTestnet: envConfig.apis.explorers.bscMainnet!,
-        },
+        apiKey: envConfig.apis.apiKey,
     },
 
     typechain: {
@@ -108,8 +97,8 @@ const hardhatConfig: HardhatUserConfig | HardhatWithNetworkTypes = {
         currency: "USD",
         coinmarketcap: envConfig.apis.coinmarketcap,
         L2: "base",
-        L1Etherscan: envConfig.apis.explorers.ethereumMainnet!,
-        L2Etherscan: envConfig.apis.explorers.baseSepolia!,
+        L1Etherscan: envConfig.apis.apiKey!,
+        L2Etherscan: envConfig.apis.apiKey!,
         excludeContracts: [
             "@openzeppelin/contracts/",
             "@openzeppelin/contracts-upgradeable/",

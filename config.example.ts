@@ -3,7 +3,9 @@ import { EnvConfigInterface } from "./types";
 export const envConfig: EnvConfigInterface = {
     accounts: {
         // REPLACE with your private key
-        testnetAccounts: ["private key"],
+        testnetAccounts: [
+            "1111111111111111111122222222222222222223333333333333333344444444"
+        ],
         // REPLACE with your private key
         mainnetAccounts: [
             "1111111111111111111122222222222222222223333333333333333344444444",
@@ -12,34 +14,23 @@ export const envConfig: EnvConfigInterface = {
 
     apis: {
         // Project id from https://infura.io/
-        infura: "abcd1234...",
-        explorers: {
-            // for https://etherscan.io/
-            ethereumMainnet: "abcd1234...",
-
-            // for https://bscscan.com/
-            bscMainnet: "abcd1234...",
-
-            // for https://polygonscan.com/
-            polygonMainnet: "abcd1234...",
-        },
-        coinmarketcap: "abcd1234...",
+        infura: "...",
+        apiKey: "...", // Etherscan
+        coinmarketcap: "...",
     },
 
     deploy: {
         baseSepolia: {
             waitConfirmations: 3,
-
             staking: {
-                stakeToken: "0x5B46363bb89D850E5da271363274e19F9392488D",
+                stakeToken: "0x7323CC5c18DEcCD3e918bbccff80333961d85a88",
             },
         },
 
         base: {
             waitConfirmations: 3,
-
             staking: {
-                stakeToken: "0x0000000000000000000000000000000000000000",
+                stakeToken: "0x1f16e03C1a5908818F47f6EE7bB16690b40D0671",
             },
         },
     },

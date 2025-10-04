@@ -35,12 +35,8 @@ export interface EnvConfigInterface {
 
     apis: {
         infura?: string;
-        explorers: {
-            [network in NETWORKS]?: string;
-        } & {
-            [others: string]: string;
-        };
-        coinmarketcap: string;
+        apiKey?: string;
+        coinmarketcap?: string;
     };
 
     deploy: {
