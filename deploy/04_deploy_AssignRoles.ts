@@ -25,10 +25,14 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
      *  roles for staking contract
      *
      *  **************************/
-    const managerAddress = "";
-    const emergencyAddress = "";
-    const stakingPauserAddress = "";
-    const stakingUnpauserAddress = "";
+    const isLocalNetwork =
+        hre.network.name === "docker" || hre.network.name === "hardhat";
+
+    // Use deployer for all roles on local networks for testing
+    const managerAddress = isLocalNetwork ? deployer : "";
+    const emergencyAddress = isLocalNetwork ? deployer : "";
+    const stakingPauserAddress = isLocalNetwork ? deployer : "";
+    const stakingUnpauserAddress = isLocalNetwork ? deployer : "";
 
     if (managerAddress) {
         await stakingContract.grantRole(
@@ -78,10 +82,11 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
      *
      *  **************************/
 
-    const rewardAllocatorAddress = "";
-    const fundsManagerAddress = "";
-    const rewardAllocationPauserAddress = "";
-    const rewardAllocationUnpauserAddress = "";
+    // Use deployer for all roles on local networks for testing
+    const rewardAllocatorAddress = isLocalNetwork ? deployer : "";
+    const fundsManagerAddress = isLocalNetwork ? deployer : "";
+    const rewardAllocationPauserAddress = isLocalNetwork ? deployer : "";
+    const rewardAllocationUnpauserAddress = isLocalNetwork ? deployer : "";
 
     if (rewardAllocatorAddress) {
         await rewardAllocationContract.grantRole(

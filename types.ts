@@ -3,6 +3,7 @@ import { HttpNetworkUserConfig } from "hardhat/types";
 export enum NETWORKS {
     hardhat = "hardhat",
     localhost = "localhost",
+    docker = "docker",
     ganache = "ganache",
     ethereumMainnet = "ethereumMainnet",
     goerli = "goerli",
