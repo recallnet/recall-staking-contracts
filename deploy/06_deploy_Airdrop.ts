@@ -1,6 +1,6 @@
+import { keccak256, parseEther, solidityPacked } from "ethers";
 import { DeployFunction } from "hardhat-deploy/types";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
-import { parseEther, keccak256, solidityPacked, randomBytes } from "ethers";
 
 // Standard Anvil test accounts
 const ANVIL_ACCOUNTS = [
@@ -76,16 +76,19 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     const createReceipt = await createTx.wait();
 
     // Get the project address from the ProjectCreated event
-    const projectCreatedEvent = createReceipt?.logs.find((log: { topics: string[] }) => {
-        try {
-            return (
-                log.topics[0] ===
-                fuulFactoryContract.interface.getEvent("ProjectCreated")?.topicHash
-            );
-        } catch {
-            return false;
-        }
-    });
+    const projectCreatedEvent = createReceipt?.logs.find(
+        (log: { topics: readonly string[] }) => {
+            try {
+                return (
+                    log.topics[0] ===
+                    fuulFactoryContract.interface.getEvent("ProjectCreated")
+                        ?.topicHash
+                );
+            } catch {
+                return false;
+            }
+        },
+    );
 
     if (!projectCreatedEvent) {
         throw new Error("ProjectCreated event not found");
@@ -111,14 +114,18 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
         erc20Mock.address,
     );
 
-    const totalAirdrop = AIRDROP_AMOUNT_PER_ACCOUNT * BigInt(ANVIL_ACCOUNTS.length);
+    const totalAirdrop =
+        AIRDROP_AMOUNT_PER_ACCOUNT * BigInt(ANVIL_ACCOUNTS.length);
 
     console.log("Minting", totalAirdrop.toString(), "tokens...");
     const mintTx = await erc20MockContract.mint(totalAirdrop);
     await mintTx.wait();
 
     console.log("Approving tokens for project...");
-    const approveTx = await erc20MockContract.approve(projectAddress, totalAirdrop);
+    const approveTx = await erc20MockContract.approve(
+        projectAddress,
+        totalAirdrop,
+    );
     await approveTx.wait();
 
     console.log("Depositing tokens into project...");
@@ -133,7 +140,11 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     // Skip account 0 (deployer) since they're the admin
     const accountsToAirdrop = ANVIL_ACCOUNTS.slice(1);
 
-    console.log("Creating attributions for", accountsToAirdrop.length, "accounts...");
+    console.log(
+        "Creating attributions for",
+        accountsToAirdrop.length,
+        "accounts...",
+    );
 
     const attributions = accountsToAirdrop.map((account, index) => {
         // Generate a unique proofWithoutProject for each attribution
@@ -146,7 +157,10 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
         // proof = keccak256(proofWithoutProject, projectAddress)
         const proof = keccak256(
-            solidityPacked(["bytes32", "address"], [proofWithoutProject, projectAddress]),
+            solidityPacked(
+                ["bytes32", "address"],
+                [proofWithoutProject, projectAddress],
+            ),
         );
 
         return {
