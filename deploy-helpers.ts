@@ -138,7 +138,8 @@ export async function deployBeaconProxy(
             if (
                 networkName != "hardhat" &&
                 networkName != "ganache" &&
-                networkName != "localhost"
+                networkName != "localhost" &&
+                networkName != "docker"
             ) {
                 console.log(
                     `Upgrading the ${contractName} UpgradeableBeacon ${contractUpgradeableBeaconData.address} to ${contractImplementationData.address} implementation address...`,
@@ -237,7 +238,8 @@ export async function deployProxy(
             if (
                 networkName != "hardhat" &&
                 networkName != "ganache" &&
-                networkName != "localhost"
+                networkName != "localhost" &&
+                networkName != "docker"
             ) {
                 console.log(
                     `Upgrading the ${contractName} TransparentUpgradeableProxy ${contractProxyData.address} to ${contractImplementationData.address} implementation address...`,
@@ -341,7 +343,8 @@ export async function verify(
     if (
         networkName != "hardhat" &&
         networkName != "ganache" &&
-        networkName != "localhost"
+        networkName != "localhost" &&
+        networkName != "docker"
     ) {
         console.log(`Verifying contract ${contractName}...`);
 

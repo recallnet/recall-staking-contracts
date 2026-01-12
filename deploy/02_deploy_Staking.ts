@@ -12,6 +12,15 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
     const networkConfig = await getConfig(hre);
 
+    // Use deployed mock token for docker/hardhat, otherwise use config
+    let stakeTokenAddress: string;
+    if (hre.network.name === "docker" || hre.network.name === "hardhat") {
+        const erc20MockData = await get("ERC20Mock");
+        stakeTokenAddress = erc20MockData.address;
+    } else {
+        stakeTokenAddress = networkConfig.staking.stakeToken;
+    }
+
     const nftReceiptData = await get("NftReceiptProxy");
 
     const stakingContract = await ethers.getContractAt(
@@ -20,13 +29,13 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     );
     const initializeData = (
         await stakingContract.initialize.populateTransaction(
-            networkConfig.staking.stakeToken,
+            stakeTokenAddress,
             nftReceiptData.address,
             deployer,
         )
     ).data;
 
-    console.log("Stake token", networkConfig.staking.stakeToken);
+    console.log("Stake token", stakeTokenAddress);
     console.log("NftReceipt", nftReceiptData.address);
     console.log("Default admin", deployer);
 
